@@ -34,8 +34,8 @@ export default function LoginPage() {
   return (
     <div className="login-page">
       <div className="login-container">
-        <h1 className="login-title">BandMate</h1>
-        <p className="login-subtitle">학교 밴드 관리 앱</p>
+        <h1 className="login-title">Dizzying F.O.G.I.</h1>
+        <p className="login-subtitle">심한 화음 고품질의 락.</p>
 
         <form onSubmit={handleSubmit} className="login-form">
           {!isLogin && (

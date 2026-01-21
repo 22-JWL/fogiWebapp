@@ -10,22 +10,25 @@ interface PosterItem {
   date: string
   venue: string
   imageColor: string
+  backgroundImage?: string
 }
 
 const posterItems: PosterItem[] = [
   {
     id: 1,
-    title: '2025 정기 공연',
-    date: '2025.03.15',
-    venue: '대강당',
-    imageColor: 'linear-gradient(180deg, #1a1a2e 0%, #4a1942 100%)'
+    title: '2024 정기 공연',
+    date: '2024.08.18',
+    venue: '홍대 001 club',
+    imageColor: 'linear-gradient(180deg, #1a1a2e 0%, #4a1942 100%)',
+    backgroundImage: '/poster.jpg'
   },
   {
     id: 2,
-    title: '교내 축제',
-    date: '2025.05.20',
-    venue: '야외무대',
-    imageColor: 'linear-gradient(180deg, #0f3460 0%, #16213e 100%)'
+    title: '첫 녹음',
+    date: '2024.01.21',
+    venue: '카멜레온 녹음실',
+    imageColor: 'linear-gradient(180deg, #0f3460 0%, #16213e 100%)',
+    backgroundImage: '/recording.jpg'
   }
 ]
 
@@ -46,7 +49,11 @@ export default function ConcertPoster() {
           <SwiperSlide key={poster.id} className="poster-slide">
             <div
               className="poster-card"
-              style={{ background: poster.imageColor }}
+              style={{
+                background: poster.backgroundImage
+                  ? `url(${poster.backgroundImage}) center/cover no-repeat`
+                  : poster.imageColor
+              }}
             >
               <div className="poster-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">

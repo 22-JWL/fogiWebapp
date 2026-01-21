@@ -11,25 +11,66 @@ interface BannerItem {
   subtitle: string
   backgroundColor: string
   accentColor: string
+  backgroundImage?: string
 }
 
 const bannerItems: BannerItem[] = [
+
   {
     id: 1,
-    title: 'BandMate',
-    subtitle: '함께 만드는 음악, 함께 나누는 추억',
+    title: 'Dizzying F.O.G.I.',
+    subtitle: '심한 화음 고품질의 락.',
     backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
     accentColor: '#a78bfa'
   },
+  // {
+  //   id: 1,
+  //   title: 'Dizzying F.O.G.I.',
+  //   subtitle: '심한 화음 고품질의 락.',
+  //   backgroundColor: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  //   accentColor: '#a78bfa'
+  // },
+  // {
+  //   id: 2,
+  //   title: '신입부원 모집',
+  //   subtitle: '당신의 열정을 보여주세요',
+  //   backgroundColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
+  //   accentColor: '#f5576c'
+  // },
   {
     id: 2,
-    title: '새 학기 신입부원 모집',
-    subtitle: '당신의 열정을 보여주세요',
-    backgroundColor: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-    accentColor: '#f5576c'
+    title: '',
+    subtitle: '',
+    backgroundColor: '',
+    accentColor: '',
+    backgroundImage: '/mainperson.jpg'
   },
   {
     id: 3,
+    title: '',
+    subtitle: '',
+    backgroundColor: '',
+    accentColor: '',
+    backgroundImage: '/polaroid.jpg'
+  },
+  {
+    id: 4,
+    title: '',
+    subtitle: '',
+    backgroundColor: '',
+    accentColor: '',
+    backgroundImage: '/legend.jpg'
+  },
+  {
+    id: 5,
+    title: '',
+    subtitle: '',
+    backgroundColor: '',
+    accentColor: '',
+    backgroundImage: '/sign.jpg'
+  },
+  {
+    id: 6,
     title: '정기 공연 준비 중',
     subtitle: '최고의 무대를 위해 달려갑니다',
     backgroundColor: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
@@ -58,7 +99,11 @@ export default function HeroBanner() {
           <SwiperSlide key={item.id}>
             <div
               className="hero-slide"
-              style={{ background: item.backgroundColor }}
+              style={{
+                background: item.backgroundImage
+                  ? `url(${item.backgroundImage}) center/cover no-repeat`
+                  : item.backgroundColor
+              }}
             >
               <div className="hero-content">
                 <h2 className="hero-title">{item.title}</h2>

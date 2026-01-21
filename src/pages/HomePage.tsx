@@ -117,7 +117,7 @@ export default function HomePage() {
     <div className="home-page">
       <header className="header">
         <div className="header-content">
-          <h1>BandMate</h1>
+          <h1>Dizzying F.O.G.I.</h1>
           <p className="welcome-text">
             안녕하세요, <strong>{currentUser.name}</strong>님!
           </p>

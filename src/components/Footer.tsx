@@ -37,7 +37,7 @@ export default function Footer() {
 
       <div className="footer-bottom">
         <p className="footer-copyright">
-          © 2025 BandMate. All rights reserved.
+          © 2025 Dizzying F.O.G.I. All rights reserved.
         </p>
       </div>
     </footer>

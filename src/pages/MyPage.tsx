@@ -181,7 +181,7 @@ export default function MyPage() {
         </section>
 
         <footer className="mypage-footer">
-          <p>BandMate v1.1.0</p>
+          <p>Dizzying F.O.G.I. v1.1.0</p>
         </footer>
       </div>
     </div>
