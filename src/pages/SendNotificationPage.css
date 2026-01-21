@@ -1,0 +1,131 @@
+.send-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.send-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid #333;
+}
+
+.back-btn {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 1.2rem;
+}
+
+.send-header h1 {
+  font-size: 1.2rem;
+}
+
+.send-content {
+  flex: 1;
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.send-form {
+  background-color: var(--bg-card);
+  padding: 24px;
+  border-radius: 16px;
+}
+
+.send-form .form-group {
+  margin-bottom: 20px;
+}
+
+.send-form label {
+  display: block;
+  margin-bottom: 8px;
+  font-weight: 500;
+  color: var(--text-secondary);
+}
+
+.send-form textarea {
+  resize: vertical;
+  min-height: 100px;
+}
+
+.target-options {
+  display: flex;
+  gap: 16px;
+}
+
+.radio-option,
+.checkbox-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  padding: 8px 12px;
+  background-color: var(--bg-dark);
+  border-radius: 8px;
+  transition: background-color 0.2s;
+}
+
+.radio-option:hover,
+.checkbox-option:hover {
+  background-color: #252540;
+}
+
+.radio-option input,
+.checkbox-option input {
+  width: auto;
+  accent-color: var(--primary-color);
+}
+
+.parts-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 8px;
+}
+
+.result-message {
+  padding: 12px 16px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.result-message.success {
+  background-color: rgba(0, 206, 201, 0.2);
+  color: var(--success);
+}
+
+.result-message.error {
+  background-color: rgba(255, 118, 117, 0.2);
+  color: var(--danger);
+}
+
+.send-btn {
+  width: 100%;
+  padding: 16px;
+  font-size: 1.1rem;
+}
+
+.access-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  text-align: center;
+}
+
+.access-denied h2 {
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.access-denied p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}

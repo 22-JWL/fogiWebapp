@@ -1,0 +1,262 @@
+.mypage {
+  min-height: 100vh;
+}
+
+.mypage-header {
+  padding: 16px 20px;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid #333;
+}
+
+.mypage-header h1 {
+  font-size: 1.25rem;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.mypage-content {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+/* 프로필 섹션 */
+.profile-section {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.profile-avatar {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: white;
+}
+
+.profile-info {
+  flex: 1;
+}
+
+.profile-name {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+.profile-details {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.profile-part {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.profile-role {
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+.profile-role.manager {
+  background-color: var(--primary-color);
+  color: white;
+}
+
+.profile-role.member {
+  background-color: #333;
+  color: var(--text-secondary);
+}
+
+/* 설정 섹션 */
+.settings-section h3,
+.manager-section h3,
+.account-section h3 {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin: 0 0 16px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.ios-guide {
+  background-color: #2a2a4a;
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+  border-left: 3px solid var(--primary-color);
+}
+
+.ios-guide p {
+  margin: 4px 0;
+  font-size: 13px;
+  line-height: 1.4;
+}
+
+.ios-guide .icon-share {
+  display: inline-block;
+  padding: 2px 6px;
+  background-color: #3a3a5a;
+  border-radius: 4px;
+  font-size: 11px;
+}
+
+.error-message {
+  background-color: rgba(220, 53, 69, 0.15);
+  border: 1px solid var(--danger);
+  padding: 12px;
+  border-radius: 8px;
+  margin-bottom: 16px;
+}
+
+.error-message p {
+  color: var(--danger);
+  font-size: 13px;
+  margin: 0;
+}
+
+.setting-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 0;
+}
+
+.setting-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.setting-label {
+  font-size: 15px;
+  color: var(--text-primary);
+}
+
+.setting-desc {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.setting-status {
+  padding: 6px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.setting-status.enabled {
+  background-color: rgba(0, 206, 201, 0.2);
+  color: var(--success);
+}
+
+.setting-status.disabled {
+  background-color: rgba(255, 118, 117, 0.2);
+  color: var(--danger);
+}
+
+.btn-small {
+  padding: 8px 16px;
+  font-size: 13px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.btn-small:hover {
+  background-color: var(--primary-dark);
+}
+
+.btn-small:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* 매니저 메뉴 */
+.menu-link {
+  display: flex;
+  align-items: center;
+  padding: 14px 0;
+  text-decoration: none;
+  color: var(--text-primary);
+  border-bottom: 1px solid #333;
+}
+
+.menu-link:last-child {
+  border-bottom: none;
+}
+
+.menu-icon {
+  font-size: 20px;
+  margin-right: 12px;
+}
+
+.menu-text {
+  flex: 1;
+  font-size: 15px;
+}
+
+.menu-arrow {
+  font-size: 20px;
+  color: var(--text-secondary);
+}
+
+/* 계정 섹션 */
+.account-info {
+  display: flex;
+  justify-content: space-between;
+  padding: 12px 0;
+  border-bottom: 1px solid #333;
+  margin-bottom: 16px;
+}
+
+.account-label {
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.account-value {
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.btn-logout {
+  width: 100%;
+  padding: 14px;
+  background-color: transparent;
+  border: 1px solid var(--danger);
+  color: var(--danger);
+  border-radius: 8px;
+  font-size: 15px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.btn-logout:hover {
+  background-color: var(--danger);
+  color: white;
+}
+
+/* 푸터 */
+.mypage-footer {
+  text-align: center;
+  padding: 24px 0;
+  margin-top: 20px;
+}
+
+.mypage-footer p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin: 0;
+}

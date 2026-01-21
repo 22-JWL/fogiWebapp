@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm create:*)",
+      "Bash(npm init vite@latest . -- --template react-ts --yes)",
+      "Bash(npx:*)",
+      "Bash(npm install)",
+      "Bash(npm run build:*)",
+      "Bash(cat:*)",
+      "Bash(npm install:*)",
+      "Bash(firebase --version:*)",
+      "Bash(firebase login:list:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase functions:artifacts:setpolicy:*)",
+      "Bash(npm run dev:*)",
+      "Bash(firebase functions:delete:*)"
+    ]
+  }
+}

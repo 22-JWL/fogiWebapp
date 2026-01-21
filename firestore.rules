@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 인증된 사용자만 접근 가능
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // 본인 문서인지 확인
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // 매니저인지 확인
+    function isManager() {
+      return isAuthenticated() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+    }
+
+    // 사용자 컬렉션
+    match /users/{userId} {
+      // 읽기: 본인 정보 또는 매니저
+      allow read: if isOwner(userId) || isManager();
+
+      // 생성: 인증된 사용자가 본인 문서 생성
+      allow create: if isOwner(userId);
+
+      // 수정: 본인이 fcmToken, name 등 수정 가능
+      // 역할(role) 변경은 매니저만 가능
+      allow update: if isOwner(userId) ||
+        (isManager() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']));
+
+      // 삭제: 매니저만
+      allow delete: if isManager();
+    }
+
+    // 알림 컬렉션
+    match /notifications/{notificationId} {
+      // 읽기: 인증된 사용자
+      allow read: if isAuthenticated();
+
+      // 생성: 매니저만
+      allow create: if isManager();
+
+      // 수정/삭제: 불가 (Cloud Functions에서만 처리)
+      allow update, delete: if false;
+    }
+
+    // 일정 컬렉션
+    match /schedules/{scheduleId} {
+      // 읽기: 인증된 사용자
+      allow read: if isAuthenticated();
+
+      // 생성/수정/삭제: 매니저만
+      allow create, update, delete: if isManager();
+    }
+
+    // 출석 컬렉션
+    match /attendances/{attendanceId} {
+      // 읽기: 인증된 사용자
+      allow read: if isAuthenticated();
+
+      // 생성/수정: 본인 출석만 (attendanceId = scheduleId_userId 형식)
+      allow create, update: if isAuthenticated() &&
+        attendanceId.split('_')[1] == request.auth.uid;
+
+      // 삭제: 불가
+      allow delete: if false;
+    }
+  }
+}
