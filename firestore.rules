@@ -19,8 +19,8 @@ service cloud.firestore {
 
     // 사용자 컬렉션
     match /users/{userId} {
-      // 읽기: 본인 정보 또는 매니저
-      allow read: if isOwner(userId) || isManager();
+      // 읽기: 인증된 모든 사용자 (멤버 목록 조회, 참석률 계산 등)
+      allow read: if isAuthenticated();
 
       // 생성: 인증된 사용자가 본인 문서 생성
       allow create: if isOwner(userId);

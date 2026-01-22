@@ -26,18 +26,29 @@ interface Reminder {
 interface ScheduleDoc {
   id?: string
   title: string
-  type: 'practice' | 'performance' | 'meeting'
+  type: 'practice' | 'performance' | 'meeting' | 'birthday'
   date: string
   startTime: string
   location: string
   reminders?: Reminder[]
   sentReminders?: number[]
+  userId?: string  // 생일 일정의 경우 해당 사용자 ID
+}
+
+interface UserDoc {
+  name: string
+  email: string
+  birthday: string  // YYYY-MM-DD
+  role: string
+  part: string
+  fcmToken?: string
 }
 
 const SCHEDULE_TYPE_LABELS: Record<string, string> = {
   practice: '연습',
   performance: '공연',
-  meeting: '회식'
+  meeting: '회식',
+  birthday: '생일'
 }
 
 // Firestore에 알림 문서가 생성되면 FCM 발송
@@ -265,6 +276,164 @@ export const checkScheduleReminders = onSchedule(
       console.log('[리마인더] 체크 완료')
     } catch (error) {
       console.error('[리마인더] 오류:', error)
+    }
+  }
+)
+
+// 현재 연도의 생일 날짜 계산
+function getBirthdayThisYear(birthday: string): string {
+  const koreaTime = getKoreaTime()
+  const currentYear = koreaTime.getFullYear()
+  // birthday: "1990-05-15" -> "2025-05-15"
+  const [, month, day] = birthday.split('-')
+  return `${currentYear}-${month}-${day}`
+}
+
+// 회원가입 시 생일 일정 자동 생성
+export const onUserCreated = onDocumentCreated(
+  {
+    document: 'users/{userId}',
+    region: 'asia-northeast3'
+  },
+  async (event) => {
+    const snap = event.data
+    if (!snap) {
+      console.log('[생일] 데이터 없음')
+      return
+    }
+
+    const user = snap.data() as UserDoc
+    const userId = event.params.userId
+
+    if (!user.birthday) {
+      console.log(`[생일] ${user.name}님의 생일 정보 없음`)
+      return
+    }
+
+    console.log(`[생일] ${user.name}님 가입 - 생일: ${user.birthday}`)
+
+    // 올해 생일 날짜 계산
+    const birthdayThisYear = getBirthdayThisYear(user.birthday)
+
+    // 생일 일정 생성
+    const birthdaySchedule = {
+      title: `🎂 ${user.name}님의 생일`,
+      type: 'birthday',
+      date: birthdayThisYear,
+      startTime: '00:00',
+      endTime: '23:59',
+      location: '',
+      description: `${user.name}님의 생일을 축하해 주세요!`,
+      userId: userId,
+      createdBy: 'system',
+      createdAt: new Date().toISOString()
+    }
+
+    try {
+      await db.collection('schedules').add(birthdaySchedule)
+      console.log(`[생일] ${user.name}님의 생일 일정 생성 완료: ${birthdayThisYear}`)
+    } catch (error) {
+      console.error(`[생일] 일정 생성 오류:`, error)
+    }
+  }
+)
+
+// 매일 아침 9시 생일 체크 및 알림 발송
+export const checkBirthdays = onSchedule(
+  {
+    schedule: '0 9 * * *',  // 매일 아침 9시 (cron 문법)
+    region: 'asia-northeast3',
+    timeZone: 'Asia/Seoul'
+  },
+  async () => {
+    const koreaTime = getKoreaTime()
+    const today = getKoreaDateString(koreaTime)
+    const currentYear = koreaTime.getFullYear()
+
+    console.log(`[생일알림] 체크 시작 - 오늘: ${today}`)
+
+    try {
+      // 모든 사용자 조회
+      const usersSnapshot = await db.collection('users').get()
+      const birthdayUsers: { name: string; userId: string }[] = []
+      const tokens: string[] = []
+
+      usersSnapshot.forEach((userDoc) => {
+        const user = userDoc.data() as UserDoc
+
+        // FCM 토큰 수집
+        if (user.fcmToken) {
+          tokens.push(user.fcmToken)
+        }
+
+        // 오늘 생일인 사용자 찾기
+        if (user.birthday) {
+          const birthdayThisYear = getBirthdayThisYear(user.birthday)
+          if (birthdayThisYear === today) {
+            birthdayUsers.push({ name: user.name, userId: userDoc.id })
+          }
+        }
+      })
+
+      console.log(`[생일알림] 오늘 생일자: ${birthdayUsers.length}명`)
+      console.log(`[생일알림] FCM 토큰: ${tokens.length}개`)
+
+      if (birthdayUsers.length === 0) {
+        console.log('[생일알림] 오늘 생일자 없음')
+        return
+      }
+
+      if (tokens.length === 0) {
+        console.log('[생일알림] 발송할 토큰 없음')
+        return
+      }
+
+      // 각 생일자에 대해 알림 발송
+      for (const birthdayUser of birthdayUsers) {
+        console.log(`[생일알림] 🎂 ${birthdayUser.name}님 생일 알림 발송`)
+
+        const message = {
+          notification: {
+            title: '🎂 생일 축하합니다!',
+            body: `오늘은 ${birthdayUser.name}님의 생일입니다! 축하 메시지를 보내주세요.`
+          },
+          data: {
+            type: 'birthday',
+            userId: birthdayUser.userId
+          },
+          tokens
+        }
+
+        try {
+          const response = await messaging.sendEachForMulticast(message)
+          console.log(`[생일알림] ${birthdayUser.name}님 알림: ${response.successCount}개 성공`)
+
+          // 내년 생일 일정 업데이트 (연도 갱신)
+          const schedulesSnapshot = await db.collection('schedules')
+            .where('type', '==', 'birthday')
+            .where('userId', '==', birthdayUser.userId)
+            .get()
+
+          if (!schedulesSnapshot.empty) {
+            const scheduleDoc = schedulesSnapshot.docs[0]
+            const nextYear = currentYear + 1
+            const [, month, day] = scheduleDoc.data().date.split('-')
+            const nextBirthday = `${nextYear}-${month}-${day}`
+
+            await scheduleDoc.ref.update({
+              date: nextBirthday,
+              updatedAt: new Date().toISOString()
+            })
+            console.log(`[생일알림] ${birthdayUser.name}님 내년 생일 일정 업데이트: ${nextBirthday}`)
+          }
+        } catch (err) {
+          console.error(`[생일알림] 발송 오류:`, err)
+        }
+      }
+
+      console.log('[생일알림] 체크 완료')
+    } catch (error) {
+      console.error('[생일알림] 오류:', error)
     }
   }
 )

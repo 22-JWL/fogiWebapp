@@ -20,6 +20,7 @@ export interface User {
   email: string
   role: UserRole
   part: Part
+  birthday: string // YYYY-MM-DD
   fcmToken?: string
   createdAt: string
 }
@@ -43,12 +44,13 @@ export interface NotificationPayload {
 }
 
 // 일정 타입
-export type ScheduleType = 'practice' | 'performance' | 'meeting'
+export type ScheduleType = 'practice' | 'performance' | 'meeting' | 'birthday'
 
 export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
   practice: '연습',
   performance: '공연',
-  meeting: '회식'
+  meeting: '회식',
+  birthday: '생일'
 }
 
 // 미리 알림 (분 단위로 저장)

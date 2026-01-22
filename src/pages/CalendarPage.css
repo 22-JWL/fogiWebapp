@@ -124,6 +124,10 @@
   background-color: #2ecc71;
 }
 
+.dot.birthday {
+  background-color: #e91e63;
+}
+
 /* Legend */
 .legend {
   display: flex;
@@ -196,6 +200,11 @@
 
 .type-badge.meeting {
   background-color: #2ecc71;
+  color: white;
+}
+
+.type-badge.birthday {
+  background-color: #e91e63;
   color: white;
 }
 

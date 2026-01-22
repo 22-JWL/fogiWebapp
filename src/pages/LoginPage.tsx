@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [password, setPassword] = useState('')
   const [name, setName] = useState('')
   const [part, setPart] = useState<Part>('vocal')
+  const [birthday, setBirthday] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -22,7 +23,7 @@ export default function LoginPage() {
       if (isLogin) {
         await signIn(email, password)
       } else {
-        await signUp(email, password, name, part)
+        await signUp(email, password, name, part, birthday)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : '오류가 발생했습니다.')
@@ -62,6 +63,16 @@ export default function LoginPage() {
                     <option key={key} value={key}>{label}</option>
                   ))}
                 </select>
+              </div>
+              <div className="form-group">
+                <label htmlFor="birthday">생일</label>
+                <input
+                  type="date"
+                  id="birthday"
+                  value={birthday}
+                  onChange={(e) => setBirthday(e.target.value)}
+                  required={!isLogin}
+                />
               </div>
             </>
           )}
