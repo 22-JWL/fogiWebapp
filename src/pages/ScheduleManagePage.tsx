@@ -24,6 +24,7 @@ export default function ScheduleManagePage() {
   const [endTime, setEndTime] = useState('21:00')
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
+  const [referenceLink, setReferenceLink] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
   // 매니저가 아니면 접근 불가
@@ -60,6 +61,7 @@ export default function ScheduleManagePage() {
     setEndTime('21:00')
     setLocation('')
     setDescription('')
+    setReferenceLink('')
     setEditingSchedule(null)
     setShowForm(false)
   }
@@ -79,6 +81,7 @@ export default function ScheduleManagePage() {
     setEndTime(schedule.endTime)
     setLocation(schedule.location)
     setDescription(schedule.description || '')
+    setReferenceLink(schedule.referenceLink || '')
     setShowForm(true)
   }
 
@@ -118,6 +121,7 @@ export default function ScheduleManagePage() {
         endTime,
         location,
         description: description || null,
+        referenceLink: referenceLink || null,
         createdBy: currentUser.id
       }
 
@@ -282,6 +286,17 @@ export default function ScheduleManagePage() {
                           {schedule.startTime} - {schedule.endTime}
                         </p>
                         <p className="schedule-location">{schedule.location}</p>
+                        {schedule.referenceLink && (
+                          <a
+                            href={schedule.referenceLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="reference-link-btn"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            🔗 링크 열기
+                          </a>
+                        )}
                         <div className="schedule-actions">
                           <button onClick={() => openEditForm(schedule)} className="btn-edit">
                             수정
@@ -388,6 +403,17 @@ export default function ScheduleManagePage() {
                 onChange={(e) => setDescription(e.target.value)}
                 placeholder="추가 안내사항"
                 rows={3}
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="referenceLink">참고 링크 (선택)</label>
+              <input
+                type="url"
+                id="referenceLink"
+                value={referenceLink}
+                onChange={(e) => setReferenceLink(e.target.value)}
+                placeholder="https://..."
               />
             </div>
 

@@ -61,6 +61,7 @@ export interface Schedule {
   endTime: string // HH:mm
   location: string
   description?: string
+  referenceLink?: string // 참고 링크 URL
   createdBy: string
   createdAt: string
   updatedAt?: string

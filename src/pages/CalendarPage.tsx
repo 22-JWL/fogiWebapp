@@ -202,6 +202,16 @@ export default function CalendarPage() {
                     <h3>{schedule.title}</h3>
                     <p className="schedule-time">{schedule.startTime} - {schedule.endTime}</p>
                     <p className="schedule-location">{schedule.location}</p>
+                    {schedule.referenceLink && (
+                      <a
+                        href={schedule.referenceLink}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="reference-link-btn"
+                      >
+                        🔗 링크 열기
+                      </a>
+                    )}
                   </div>
 
                   <div className="attendance-section">
