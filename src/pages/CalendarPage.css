@@ -210,6 +210,33 @@
   color: var(--text-secondary);
 }
 
+/* RSVP Rate */
+.rsvp-rate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 8px 12px;
+  background-color: rgba(138, 43, 226, 0.1);
+  border-radius: 8px;
+}
+
+.rsvp-rate-label {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.rsvp-rate-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--primary-color);
+}
+
+.rsvp-rate-detail {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
 /* Attendance Section */
 .attendance-section {
   display: flex;

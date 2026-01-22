@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, query, orderBy, doc, setDoc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, AttendanceStatus, SCHEDULE_TYPE_LABELS, ATTENDANCE_STATUS_LABELS } from '../types'
@@ -9,6 +9,8 @@ export default function CalendarPage() {
   const { currentUser } = useAuth()
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [attendances, setAttendances] = useState<Record<string, AttendanceStatus>>({})
+  const [rsvpStats, setRsvpStats] = useState<Record<string, { attending: number; late: number; total: number }>>({})
+  const [totalMembers, setTotalMembers] = useState(0)
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
@@ -24,6 +26,10 @@ export default function CalendarPage() {
   const fetchData = async () => {
     setLoading(true)
 
+    // 전체 인원 수 조회
+    const usersSnapshot = await getDocs(collection(db, 'users'))
+    setTotalMembers(usersSnapshot.size)
+
     // 일정 조회
     const q = query(collection(db, 'schedules'), orderBy('date', 'asc'))
     const snapshot = await getDocs(q)
@@ -33,28 +39,48 @@ export default function CalendarPage() {
     const filtered = allSchedules.filter(s => s.date.startsWith(selectedMonth))
     setSchedules(filtered)
 
-    // 내 출석 상태 조회
+    // 내 RSVP 상태 조회 + 일정별 RSVP 통계
     if (currentUser) {
       const attendanceMap: Record<string, AttendanceStatus> = {}
+      const statsMap: Record<string, { attending: number; late: number; total: number }> = {}
+
       for (const schedule of filtered) {
-        const attendanceDoc = await getDoc(
-          doc(db, 'attendances', `${schedule.id}_${currentUser.id}`)
+        // 내 RSVP 상태
+        const rsvpDoc = await getDoc(
+          doc(db, 'rsvps', `${schedule.id}_${currentUser.id}`)
         )
-        if (attendanceDoc.exists()) {
-          attendanceMap[schedule.id] = attendanceDoc.data().status
+        if (rsvpDoc.exists()) {
+          attendanceMap[schedule.id] = rsvpDoc.data().status
         }
+
+        // 일정별 전체 RSVP 통계
+        const rsvpQuery = query(
+          collection(db, 'rsvps'),
+          where('scheduleId', '==', schedule.id)
+        )
+        const rsvpSnapshot = await getDocs(rsvpQuery)
+        let attending = 0
+        let late = 0
+        rsvpSnapshot.docs.forEach(doc => {
+          const status = doc.data().status
+          if (status === 'attending') attending++
+          else if (status === 'late') late++
+        })
+        statsMap[schedule.id] = { attending, late, total: usersSnapshot.size }
       }
+
       setAttendances(attendanceMap)
+      setRsvpStats(statsMap)
     }
 
     setLoading(false)
   }
 
-  const handleAttendance = async (scheduleId: string, status: AttendanceStatus) => {
+  const handleRsvp = async (scheduleId: string, status: AttendanceStatus) => {
     if (!currentUser) return
 
-    const attendanceId = `${scheduleId}_${currentUser.id}`
-    await setDoc(doc(db, 'attendances', attendanceId), {
+    const rsvpId = `${scheduleId}_${currentUser.id}`
+    await setDoc(doc(db, 'rsvps', rsvpId), {
       scheduleId,
       userId: currentUser.id,
       status,
@@ -176,16 +202,27 @@ export default function CalendarPage() {
                     <h3>{schedule.title}</h3>
                     <p className="schedule-time">{schedule.startTime} - {schedule.endTime}</p>
                     <p className="schedule-location">{schedule.location}</p>
+                    {rsvpStats[schedule.id] && totalMembers > 0 && (
+                      <div className="rsvp-rate">
+                        <span className="rsvp-rate-label">참석 예정률:</span>
+                        <span className="rsvp-rate-value">
+                          {Math.round(((rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late) / totalMembers) * 100)}%
+                        </span>
+                        <span className="rsvp-rate-detail">
+                          ({rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late}/{totalMembers}명)
+                        </span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="attendance-section">
-                    <span className="attendance-label">출석:</span>
+                    <span className="attendance-label">참석 예정:</span>
                     <div className="attendance-buttons">
                       {(['attending', 'late', 'absent'] as AttendanceStatus[]).map(status => (
                         <button
                           key={status}
                           className={`attendance-btn ${status} ${attendances[schedule.id] === status ? 'active' : ''}`}
-                          onClick={() => handleAttendance(schedule.id, status)}
+                          onClick={() => handleRsvp(schedule.id, status)}
                         >
                           {ATTENDANCE_STATUS_LABELS[status]}
                         </button>

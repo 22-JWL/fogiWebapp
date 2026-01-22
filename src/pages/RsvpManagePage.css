@@ -1,0 +1,313 @@
+.rsvp-manage-page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.rsvp-manage-page .page-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 16px 20px;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid #333;
+}
+
+.rsvp-manage-page .back-btn {
+  color: var(--primary-color);
+  text-decoration: none;
+  font-size: 1.2rem;
+}
+
+.rsvp-manage-page .page-header h1 {
+  font-size: 1.2rem;
+}
+
+.rsvp-manage-page .page-content {
+  flex: 1;
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Schedule Selector */
+.rsvp-manage-page .schedule-selector {
+  margin-bottom: 20px;
+}
+
+.rsvp-manage-page .schedule-selector h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.rsvp-manage-page .schedule-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rsvp-manage-page .schedule-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  border: 2px solid transparent;
+  text-align: left;
+  width: 100%;
+  transition: all 0.2s;
+}
+
+.rsvp-manage-page .schedule-item:hover {
+  border-color: var(--primary-color);
+}
+
+.rsvp-manage-page .schedule-item.selected {
+  border-color: var(--primary-color);
+  background-color: rgba(138, 43, 226, 0.1);
+}
+
+.rsvp-manage-page .schedule-type-badge {
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.rsvp-manage-page .schedule-type-badge.practice {
+  background-color: #3498db;
+  color: white;
+}
+
+.rsvp-manage-page .schedule-type-badge.performance {
+  background-color: #e74c3c;
+  color: white;
+}
+
+.rsvp-manage-page .schedule-type-badge.meeting {
+  background-color: #2ecc71;
+  color: white;
+}
+
+.rsvp-manage-page .schedule-item-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rsvp-manage-page .schedule-item-title {
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text-primary);
+}
+
+.rsvp-manage-page .schedule-item-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+/* Selected Schedule Info */
+.rsvp-manage-page .selected-schedule-info {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.rsvp-manage-page .selected-schedule-info h3 {
+  font-size: 1.1rem;
+  margin-bottom: 8px;
+}
+
+.rsvp-manage-page .selected-schedule-info p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 4px;
+}
+
+.rsvp-manage-page .select-hint {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-secondary);
+}
+
+/* RSVP Summary */
+.rsvp-summary {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+}
+
+.rsvp-summary .summary-item {
+  flex: 1;
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 12px 8px;
+  text-align: center;
+  border: 2px solid transparent;
+}
+
+.rsvp-summary .summary-item.attending {
+  border-color: #2ecc71;
+}
+
+.rsvp-summary .summary-item.late {
+  border-color: #f39c12;
+}
+
+.rsvp-summary .summary-item.absent {
+  border-color: #e74c3c;
+}
+
+.rsvp-summary .summary-item.unknown {
+  border-color: #666;
+}
+
+.rsvp-summary .summary-count {
+  display: block;
+  font-size: 1.3rem;
+  font-weight: 700;
+}
+
+.rsvp-summary .summary-item.attending .summary-count {
+  color: #2ecc71;
+}
+
+.rsvp-summary .summary-item.late .summary-count {
+  color: #f39c12;
+}
+
+.rsvp-summary .summary-item.absent .summary-count {
+  color: #e74c3c;
+}
+
+.rsvp-summary .summary-item.unknown .summary-count {
+  color: #666;
+}
+
+.rsvp-summary .summary-label {
+  font-size: 11px;
+  color: var(--text-secondary);
+}
+
+/* Members Section */
+.rsvp-manage-page .members-section h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.rsvp-manage-page .member-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.rsvp-manage-page .member-card {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-left: 4px solid transparent;
+}
+
+.rsvp-manage-page .member-card.attending {
+  border-left-color: #2ecc71;
+}
+
+.rsvp-manage-page .member-card.late {
+  border-left-color: #f39c12;
+}
+
+.rsvp-manage-page .member-card.absent {
+  border-left-color: #e74c3c;
+}
+
+.rsvp-manage-page .member-card.unknown {
+  border-left-color: #666;
+  opacity: 0.7;
+}
+
+.rsvp-manage-page .member-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.rsvp-manage-page .member-name {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.rsvp-manage-page .member-part {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.rsvp-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.rsvp-status.attending {
+  background-color: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
+}
+
+.rsvp-status.late {
+  background-color: rgba(243, 156, 18, 0.15);
+  color: #f39c12;
+}
+
+.rsvp-status.absent {
+  background-color: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
+}
+
+.rsvp-status.unknown {
+  background-color: rgba(102, 102, 102, 0.15);
+  color: #888;
+}
+
+.status-icon {
+  font-size: 14px;
+}
+
+.rsvp-manage-page .loading-text,
+.rsvp-manage-page .empty-text {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 20px 0;
+}
+
+.rsvp-manage-page .access-denied {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+  text-align: center;
+}
+
+.rsvp-manage-page .access-denied h2 {
+  color: var(--danger);
+  margin-bottom: 8px;
+}
+
+.rsvp-manage-page .access-denied p {
+  color: var(--text-secondary);
+  margin-bottom: 24px;
+}
