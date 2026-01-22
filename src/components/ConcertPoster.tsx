@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Swiper, SwiperSlide } from 'swiper/react'
 import { FreeMode } from 'swiper/modules'
 import 'swiper/css'
@@ -11,6 +12,7 @@ interface PosterItem {
   venue: string
   imageColor: string
   backgroundImage?: string
+  description?: string
 }
 
 const posterItems: PosterItem[] = [
@@ -20,7 +22,8 @@ const posterItems: PosterItem[] = [
     date: '2024.08.18',
     venue: '홍대 001 club',
     imageColor: 'linear-gradient(180deg, #1a1a2e 0%, #4a1942 100%)',
-    backgroundImage: '/poster.jpg'
+    backgroundImage: '/poster.jpg',
+    description: 'Dizzying F.O.G.I.의 첫 정기 공연! 열정 가득한 무대를 선보였습니다.'
   },
   {
     id: 2,
@@ -28,11 +31,24 @@ const posterItems: PosterItem[] = [
     date: '2024.01.21',
     venue: '카멜레온 녹음실',
     imageColor: 'linear-gradient(180deg, #0f3460 0%, #16213e 100%)',
-    backgroundImage: '/recording.jpg'
+    backgroundImage: '/recording.jpg',
+    description: '밴드의 첫 녹음 현장. 우리의 음악을 담아냈습니다.'
   }
 ]
 
 export default function ConcertPoster() {
+  const [selectedPoster, setSelectedPoster] = useState<PosterItem | null>(null)
+
+  const handleCardClick = (poster: PosterItem) => {
+    if (poster.backgroundImage) {
+      setSelectedPoster(poster)
+    }
+  }
+
+  const closeModal = () => {
+    setSelectedPoster(null)
+  }
+
   return (
     <div className="concert-poster-section">
       <div className="section-header">
@@ -54,6 +70,7 @@ export default function ConcertPoster() {
                   ? `url(${poster.backgroundImage}) center/cover no-repeat`
                   : poster.imageColor
               }}
+              onClick={() => handleCardClick(poster)}
             >
               <div className="poster-icon">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
@@ -71,6 +88,25 @@ export default function ConcertPoster() {
           </SwiperSlide>
         ))}
       </Swiper>
+
+      {selectedPoster && (
+        <div className="image-modal" onClick={closeModal}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={closeModal}>×</button>
+            <img src={selectedPoster.backgroundImage} alt={selectedPoster.title} />
+            <div className="modal-info">
+              <h3 className="modal-title">{selectedPoster.title}</h3>
+              <div className="modal-meta">
+                <span className="modal-date">{selectedPoster.date}</span>
+                <span className="modal-venue">{selectedPoster.venue}</span>
+              </div>
+              {selectedPoster.description && (
+                <p className="modal-description">{selectedPoster.description}</p>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

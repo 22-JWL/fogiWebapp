@@ -202,32 +202,30 @@ export default function CalendarPage() {
                     <h3>{schedule.title}</h3>
                     <p className="schedule-time">{schedule.startTime} - {schedule.endTime}</p>
                     <p className="schedule-location">{schedule.location}</p>
-                    {rsvpStats[schedule.id] && totalMembers > 0 && (
-                      <div className="rsvp-rate">
-                        <span className="rsvp-rate-label">참석 예정률:</span>
-                        <span className="rsvp-rate-value">
-                          {Math.round(((rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late) / totalMembers) * 100)}%
-                        </span>
-                        <span className="rsvp-rate-detail">
-                          ({rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late}/{totalMembers}명)
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   <div className="attendance-section">
-                    <span className="attendance-label">참석 예정:</span>
-                    <div className="attendance-buttons">
-                      {(['attending', 'late', 'absent'] as AttendanceStatus[]).map(status => (
-                        <button
-                          key={status}
-                          className={`attendance-btn ${status} ${attendances[schedule.id] === status ? 'active' : ''}`}
-                          onClick={() => handleRsvp(schedule.id, status)}
-                        >
-                          {ATTENDANCE_STATUS_LABELS[status]}
-                        </button>
-                      ))}
+                    <div className="attendance-row">
+                      <span className="attendance-label">참석 예정:</span>
+                      <div className="attendance-buttons">
+                        {(['attending', 'late', 'absent'] as AttendanceStatus[]).map(status => (
+                          <button
+                            key={status}
+                            className={`attendance-btn ${status} ${attendances[schedule.id] === status ? 'active' : ''}`}
+                            onClick={() => handleRsvp(schedule.id, status)}
+                          >
+                            {ATTENDANCE_STATUS_LABELS[status]}
+                          </button>
+                        ))}
+                      </div>
                     </div>
+                    {rsvpStats[schedule.id] && totalMembers > 0 && (
+                      <div className="rsvp-rate">
+                        <span className="rsvp-rate-text">
+                          {rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late}/{totalMembers}명 참석 예정 ({Math.round(((rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late) / totalMembers) * 100)}%)
+                        </span>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}

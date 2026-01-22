@@ -3,9 +3,30 @@
 }
 
 .header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
   padding: 20px;
   background-color: var(--bg-card);
   border-bottom: 1px solid #333;
+}
+
+.notification-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background-color: var(--primary-color);
+  color: white;
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  cursor: pointer;
+}
+
+.notification-btn:disabled {
+  opacity: 0.6;
 }
 
 .header-content h1 {
@@ -176,6 +197,51 @@
   font-size: 14px;
   padding: 24px 0;
   margin: 0;
+}
+
+/* 사진 CTA */
+.photo-cta {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.photo-cta-content {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.photo-icon {
+  font-size: 32px;
+}
+
+.photo-text h3 {
+  font-size: 15px;
+  margin: 0 0 4px;
+  color: var(--text-primary);
+}
+
+.photo-text p {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.photo-btn {
+  display: block;
+  text-align: center;
+  padding: 12px;
+  background-color: var(--primary-color);
+  color: white;
+  text-decoration: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.photo-btn:hover {
+  opacity: 0.9;
 }
 
 /* 퀵 정보 */
