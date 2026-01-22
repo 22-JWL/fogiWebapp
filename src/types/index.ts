@@ -51,6 +51,12 @@ export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
   meeting: '회식'
 }
 
+// 미리 알림 (분 단위로 저장)
+export interface Reminder {
+  minutes: number // 분 단위
+  label: string   // "30분 전", "2시간 전" 등
+}
+
 // 일정
 export interface Schedule {
   id: string
@@ -62,6 +68,8 @@ export interface Schedule {
   location: string
   description?: string
   referenceLink?: string // 참고 링크 URL
+  reminders?: Reminder[] // 미리 알림 목록 (최대 3개)
+  sentReminders?: number[] // 이미 발송된 리마인더 (분 단위 값 목록)
   createdBy: string
   createdAt: string
   updatedAt?: string

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User } from '../types'
+import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
 import './ScheduleManagePage.css'
 
 export default function ScheduleManagePage() {
@@ -25,6 +25,9 @@ export default function ScheduleManagePage() {
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
   const [referenceLink, setReferenceLink] = useState('')
+  const [reminders, setReminders] = useState<Reminder[]>([])
+  const [reminderValue, setReminderValue] = useState(1)
+  const [reminderUnit, setReminderUnit] = useState<'minutes' | 'hours' | 'days'>('hours')
   const [submitting, setSubmitting] = useState(false)
 
   // 매니저가 아니면 접근 불가
@@ -62,6 +65,9 @@ export default function ScheduleManagePage() {
     setLocation('')
     setDescription('')
     setReferenceLink('')
+    setReminders([])
+    setReminderValue(1)
+    setReminderUnit('hours')
     setEditingSchedule(null)
     setShowForm(false)
   }
@@ -82,7 +88,35 @@ export default function ScheduleManagePage() {
     setLocation(schedule.location)
     setDescription(schedule.description || '')
     setReferenceLink(schedule.referenceLink || '')
+    setReminders(schedule.reminders || [])
+    setReminderValue(1)
+    setReminderUnit('hours')
     setShowForm(true)
+  }
+
+  // 리마인더 추가
+  const addReminder = () => {
+    if (reminders.length >= 3) return
+
+    // 분 단위로 변환
+    let minutes = reminderValue
+    if (reminderUnit === 'hours') minutes = reminderValue * 60
+    if (reminderUnit === 'days') minutes = reminderValue * 1440
+
+    // 중복 체크
+    if (reminders.some(r => r.minutes === minutes)) return
+
+    // 라벨 생성
+    const unitLabels = { minutes: '분', hours: '시간', days: '일' }
+    const label = `${reminderValue}${unitLabels[reminderUnit]} 전`
+
+    setReminders([...reminders, { minutes, label }])
+    setReminderValue(1)
+  }
+
+  // 리마인더 삭제
+  const removeReminder = (minutes: number) => {
+    setReminders(reminders.filter(r => r.minutes !== minutes))
   }
 
   const sendNotification = async (scheduleTitle: string, isUpdate: boolean) => {
@@ -122,6 +156,7 @@ export default function ScheduleManagePage() {
         location,
         description: description || null,
         referenceLink: referenceLink || null,
+        reminders: reminders.length > 0 ? reminders : null,
         createdBy: currentUser.id
       }
 
@@ -415,6 +450,55 @@ export default function ScheduleManagePage() {
                 onChange={(e) => setReferenceLink(e.target.value)}
                 placeholder="https://..."
               />
+            </div>
+
+            <div className="form-group">
+              <label>미리 알림 (최대 3개)</label>
+              <div className="reminder-input-group">
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={reminderValue}
+                  onChange={(e) => setReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="reminder-value-input"
+                />
+                <select
+                  value={reminderUnit}
+                  onChange={(e) => setReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                  className="reminder-unit-select"
+                >
+                  <option value="minutes">분 전</option>
+                  <option value="hours">시간 전</option>
+                  <option value="days">일 전</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={addReminder}
+                  disabled={reminders.length >= 3}
+                  className="reminder-add-btn"
+                >
+                  추가
+                </button>
+              </div>
+              {reminders.length > 0 && (
+                <div className="reminder-chips">
+                  {reminders
+                    .sort((a, b) => a.minutes - b.minutes)
+                    .map(reminder => (
+                      <span key={reminder.minutes} className="reminder-chip">
+                        {reminder.label}
+                        <button
+                          type="button"
+                          onClick={() => removeReminder(reminder.minutes)}
+                          className="chip-remove"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
 
             <div className="form-actions">

@@ -157,7 +157,7 @@ export default function HomePage() {
           >
             {isRegistering ? '...' : '🔔'}
           </button>
-        )}
+         )}
       </header>
 
       <main className="main-content">
@@ -194,30 +194,6 @@ export default function HomePage() {
                 <p className="empty-message">예정된 일정이 없습니다</p>
               )}
             </section>
-
-            {/* <section className="notifications-section card">
-              <div className="section-header">
-                <h2>최근 공지</h2>
-              </div>
-              {recentNotifications.length > 0 ? (
-                <div className="notification-list">
-                  {recentNotifications.map((notification) => (
-                    <div key={notification.id} className="notification-item">
-                      <div className="notification-content">
-                        <span className="notification-title">{notification.title}</span>
-                        <span className="notification-body">{notification.body}</span>
-                      </div>
-                      <span className="notification-time">
-                        {formatRelativeTime(notification.createdAt)}
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <p className="empty-message">공지사항이 없습니다</p>
-              )}
-            </section> */}
-
             <section className="photo-cta card">
               <div className="photo-cta-content">
                 <span className="photo-icon">📸</span>
@@ -248,8 +224,31 @@ export default function HomePage() {
                 </span>
               </div>
             </section>
+             {/* <section className="notifications-section card">
+              <div className="section-header">
+                <h2>최근 공지</h2>
+              </div>
+              {recentNotifications.length > 0 ? (
+                <div className="notification-list">
+                  {recentNotifications.map((notification) => (
+                    <div key={notification.id} className="notification-item">
+                      <div className="notification-content">
+                        <span className="notification-title">{notification.title}</span>
+                        <span className="notification-body">{notification.body}</span>
+                      </div>
+                      <span className="notification-time">
+                        {formatRelativeTime(notification.createdAt)}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="empty-message">공지사항이 없습니다</p>
+              )}
+            </section> */}
           </>
         )}
+        
       </main>
 
       <Footer />
