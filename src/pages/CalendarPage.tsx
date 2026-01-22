@@ -179,6 +179,7 @@ export default function CalendarPage() {
           <span className="legend-item"><span className="dot practice"></span> 연습</span>
           <span className="legend-item"><span className="dot performance"></span> 공연</span>
           <span className="legend-item"><span className="dot meeting"></span> 회식</span>
+          <span className="legend-item"><span className="dot birthday"></span> 생일</span>
         </div>
 
         {/* 일정 목록 + 출석 체크 */}

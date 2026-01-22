@@ -79,7 +79,7 @@ export default function HomePage() {
           collection(db, 'schedules'),
           where('date', '>=', today),
           orderBy('date', 'asc'),
-          limit(5)
+          limit(2)
         )
       )
       const schedules: Schedule[] = []
