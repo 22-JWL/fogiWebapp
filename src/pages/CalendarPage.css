@@ -161,62 +161,109 @@
 .schedule-list {
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 16px;
 }
 
 .schedule-item {
   background-color: var(--bg-card);
-  border-radius: 12px;
-  padding: 16px;
+  border-radius: 16px;
+  padding: 20px;
+  border-left: 4px solid var(--primary-color);
+}
+
+.schedule-item.practice {
+  border-left-color: #3498db;
+}
+
+.schedule-item.performance {
+  border-left-color: #e74c3c;
+}
+
+.schedule-item.meeting {
+  border-left-color: #2ecc71;
+}
+
+.schedule-item.birthday {
+  border-left-color: #ec5eb6;
 }
 
 .schedule-info {
-  margin-bottom: 12px;
+  margin-bottom: 16px;
 }
 
 .schedule-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
 }
 
 .type-badge {
-  padding: 3px 8px;
-  border-radius: 10px;
-  font-size: 11px;
+  padding: 5px 12px;
+  border-radius: 20px;
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.3px;
 }
 
 .type-badge.practice {
-  background-color: #3498db;
-  color: white;
+  background-color: rgba(52, 152, 219, 0.15);
+  color: #3498db;
 }
 
 .type-badge.performance {
-  background-color: #e74c3c;
-  color: white;
+  background-color: rgba(231, 76, 60, 0.15);
+  color: #e74c3c;
 }
 
 .type-badge.meeting {
-  background-color: #2ecc71;
-  color: white;
+  background-color: rgba(46, 204, 113, 0.15);
+  color: #2ecc71;
 }
 
 .type-badge.birthday {
-  background-color: #e91e63;
-  color: white;
+  background-color: rgba(236, 94, 182, 0.15);
+  color: #ec5eb6;
+}
+
+.schedule-date {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-weight: 500;
 }
 
 .schedule-item h3 {
-  font-size: 1rem;
-  margin-bottom: 4px;
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.4;
+  color: var(--text-primary);
+}
+
+.schedule-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .schedule-time,
 .schedule-location {
-  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 14px;
   color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.schedule-time::before {
+  content: '🕐';
+  font-size: 14px;
+}
+
+.schedule-location::before {
+  content: '📍';
+  font-size: 14px;
 }
 
 /* Reference Link Button */
@@ -243,61 +290,79 @@
 
 /* RSVP Rate */
 .rsvp-rate {
-  margin-top: 10px;
+  margin-top: 12px;
+  padding: 10px 14px;
+  background-color: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
 }
 
 .rsvp-rate-text {
-  font-size: 12px;
+  font-size: 13px;
   color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rsvp-rate-text::before {
+  content: '👥';
+  font-size: 14px;
 }
 
 /* Attendance Section */
 .attendance-section {
-  padding-top: 12px;
-  border-top: 1px solid #333;
+  padding-top: 16px;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .attendance-row {
   display: flex;
-  align-items: center;
-  gap: 12px;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .attendance-label {
   font-size: 13px;
+  font-weight: 500;
   color: var(--text-secondary);
 }
 
 .attendance-buttons {
   display: flex;
-  gap: 8px;
-  flex: 1;
+  gap: 10px;
 }
 
 .attendance-btn {
   flex: 1;
-  padding: 8px 0;
-  font-size: 13px;
-  border-radius: 6px;
+  padding: 12px 8px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 10px;
   background-color: var(--bg-dark);
   color: var(--text-secondary);
-  border: 1px solid transparent;
+  border: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.attendance-btn:active {
+  transform: scale(0.97);
 }
 
 .attendance-btn.attending.active {
-  background-color: rgba(46, 204, 113, 0.2);
+  background-color: rgba(46, 204, 113, 0.15);
   border-color: #2ecc71;
   color: #2ecc71;
 }
 
 .attendance-btn.late.active {
-  background-color: rgba(241, 196, 15, 0.2);
+  background-color: rgba(241, 196, 15, 0.15);
   border-color: #f1c40f;
   color: #f1c40f;
 }
 
 .attendance-btn.absent.active {
-  background-color: rgba(231, 76, 60, 0.2);
+  background-color: rgba(231, 76, 60, 0.15);
   border-color: #e74c3c;
   color: #e74c3c;
 }

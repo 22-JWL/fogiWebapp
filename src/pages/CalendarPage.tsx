@@ -192,7 +192,7 @@ export default function CalendarPage() {
           ) : (
             <div className="schedule-list">
               {schedules.map(schedule => (
-                <div key={schedule.id} className="schedule-item">
+                <div key={schedule.id} className={`schedule-item ${schedule.type}`}>
                   <div className="schedule-info">
                     <div className="schedule-top">
                       <span className={`type-badge ${schedule.type}`}>
@@ -201,8 +201,12 @@ export default function CalendarPage() {
                       <span className="schedule-date">{schedule.date}</span>
                     </div>
                     <h3>{schedule.title}</h3>
-                    <p className="schedule-time">{schedule.startTime} - {schedule.endTime}</p>
-                    <p className="schedule-location">{schedule.location}</p>
+                    <div className="schedule-meta">
+                      <p className="schedule-time">{schedule.startTime} - {schedule.endTime}</p>
+                      {schedule.location && (
+                        <p className="schedule-location">{schedule.location}</p>
+                      )}
+                    </div>
                     {schedule.referenceLink && (
                       <a
                         href={schedule.referenceLink}

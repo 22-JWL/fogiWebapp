@@ -233,7 +233,7 @@ exports.onUserCreated = (0, firestore_1.onDocumentCreated)({
     const birthdayThisYear = getBirthdayThisYear(user.birthday);
     // 생일 일정 생성
     const birthdaySchedule = {
-        title: `🎂 ${user.name}님의 생일`,
+        title: `🎂${user.name}`,
         type: 'birthday',
         date: birthdayThisYear,
         startTime: '00:00',
