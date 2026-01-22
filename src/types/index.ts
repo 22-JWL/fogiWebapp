@@ -48,7 +48,7 @@ export type ScheduleType = 'practice' | 'performance' | 'meeting'
 export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
   practice: '연습',
   performance: '공연',
-  meeting: '회의'
+  meeting: '회식'
 }
 
 // 일정

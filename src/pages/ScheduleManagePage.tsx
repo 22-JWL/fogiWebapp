@@ -256,7 +256,7 @@ export default function ScheduleManagePage() {
             <div className="legend">
               <span className="legend-item"><span className="dot practice"></span> 연습</span>
               <span className="legend-item"><span className="dot performance"></span> 공연</span>
-              <span className="legend-item"><span className="dot meeting"></span> 회의</span>
+              <span className="legend-item"><span className="dot meeting"></span> 회식</span>
             </div>
 
             {/* 이번 달 일정 목록 */}
