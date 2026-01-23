@@ -31,6 +31,136 @@
   width: 100%;
 }
 
+/* Month Selector */
+.rsvp-manage-page .month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 16px;
+}
+
+.rsvp-manage-page .month-btn {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+}
+
+.rsvp-manage-page .month-display {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+/* Mini Calendar */
+.rsvp-manage-page .mini-calendar {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+
+.rsvp-manage-page .calendar-header {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: center;
+  margin-bottom: 8px;
+}
+
+.rsvp-manage-page .calendar-day-name {
+  font-size: 12px;
+  color: var(--text-secondary);
+  padding: 8px 0;
+}
+
+.rsvp-manage-page .calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 4px;
+}
+
+.rsvp-manage-page .calendar-cell {
+  aspect-ratio: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  border-radius: 8px;
+  position: relative;
+}
+
+.rsvp-manage-page .calendar-cell.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.rsvp-manage-page .calendar-cell.clickable:hover {
+  background-color: var(--primary-color);
+}
+
+.rsvp-manage-page .calendar-cell.selected {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
+.rsvp-manage-page .calendar-cell.empty {
+  background: transparent;
+}
+
+.rsvp-manage-page .day-number {
+  margin-bottom: 2px;
+}
+
+.rsvp-manage-page .day-dots {
+  display: flex;
+  gap: 2px;
+}
+
+.rsvp-manage-page .dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+}
+
+.rsvp-manage-page .dot.practice {
+  background-color: #3498db;
+}
+
+.rsvp-manage-page .dot.performance {
+  background-color: #e74c3c;
+}
+
+.rsvp-manage-page .dot.meeting {
+  background-color: #2ecc71;
+}
+
+.rsvp-manage-page .dot.birthday {
+  background-color: #e91e63;
+}
+
+/* Legend */
+.rsvp-manage-page .legend {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+
+.rsvp-manage-page .legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--text-secondary);
+}
+
 /* Schedule Selector */
 .rsvp-manage-page .schedule-selector {
   margin-bottom: 20px;
@@ -106,6 +236,11 @@
 }
 
 .rsvp-manage-page .schedule-item-date {
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.rsvp-manage-page .schedule-item-time {
   font-size: 12px;
   color: var(--text-secondary);
 }
