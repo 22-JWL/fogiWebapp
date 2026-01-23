@@ -16,6 +16,10 @@ export default function CalendarPage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
 
   useEffect(() => {
     if (currentUser) {
@@ -93,7 +97,9 @@ export default function CalendarPage() {
   const changeMonth = (delta: number) => {
     const [year, month] = selectedMonth.split('-').map(Number)
     const newDate = new Date(year, month - 1 + delta, 1)
-    setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`)
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
+    setSelectedMonth(newMonth)
+    setSelectedDate(`${newMonth}-01`)
   }
 
   const formatMonthDisplay = () => {
@@ -127,6 +133,23 @@ export default function CalendarPage() {
     return schedules.filter(s => s.date === dateStr)
   }
 
+  // 날짜 클릭 핸들러
+  const handleDayClick = (day: number) => {
+    const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`
+    setSelectedDate(dateStr)
+  }
+
+  // 선택된 날짜의 일정 필터링 및 startTime 기준 정렬
+  const filteredSchedules = schedules
+    .filter(s => s.date === selectedDate)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  // 선택된 날짜 포맷팅 (표시용)
+  const formatSelectedDate = () => {
+    const [year, month, day] = selectedDate.split('-')
+    return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`
+  }
+
   if (!currentUser) return null
 
   return (
@@ -154,8 +177,14 @@ export default function CalendarPage() {
           <div className="calendar-grid">
             {generateCalendarDays().map((day, idx) => {
               const daySchedules = day ? getSchedulesForDay(day) : []
+              const dateStr = day ? `${selectedMonth}-${String(day).padStart(2, '0')}` : ''
+              const isSelected = dateStr === selectedDate
               return (
-                <div key={idx} className={`calendar-cell ${day ? '' : 'empty'}`}>
+                <div
+                  key={idx}
+                  className={`calendar-cell ${day ? 'clickable' : 'empty'} ${isSelected ? 'selected' : ''}`}
+                  onClick={() => day && handleDayClick(day)}
+                >
                   {day && (
                     <>
                       <span className="day-number">{day}</span>
@@ -183,25 +212,24 @@ export default function CalendarPage() {
 
         {/* 일정 목록 + 출석 체크 */}
         <div className="schedule-section">
-          <h2>이번 달 일정</h2>
+          <h2>{formatSelectedDate()} 일정</h2>
           {loading ? (
             <p className="loading-text">로딩 중...</p>
-          ) : schedules.length === 0 ? (
-            <p className="empty-text">이번 달 일정이 없습니다.</p>
+          ) : filteredSchedules.length === 0 ? (
+            <p className="empty-text">등록된 일정이 없습니다.</p>
           ) : (
             <div className="schedule-list">
-              {schedules.map(schedule => (
+              {filteredSchedules.map(schedule => (
                 <div key={schedule.id} className="schedule-item">
                   <div className="schedule-info">
                     <div className="schedule-top">
                       <span className={`type-badge ${schedule.type}`}>
                         {SCHEDULE_TYPE_LABELS[schedule.type]}
                       </span>
-                      <span className="schedule-date">{schedule.date}</span>
+                      <span className="schedule-time-badge">{schedule.startTime} - {schedule.endTime}</span>
                     </div>
                     <h3>{schedule.title}</h3>
                     <div className="schedule-meta">
-                      <span className="schedule-time">{schedule.startTime} - {schedule.endTime}</span>
                       <span className="schedule-location">{schedule.location}</span>
                     </div>
                     {schedule.referenceLink && (

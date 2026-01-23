@@ -112,6 +112,12 @@
   background-color: var(--primary-color);
 }
 
+.calendar-cell.selected {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
 .calendar-cell.empty {
   background: transparent;
 }
@@ -166,6 +172,35 @@
 /* Schedule List Section */
 .schedule-list-section {
   margin-top: 8px;
+}
+
+.schedule-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.schedule-list-header h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.btn-add-schedule {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-schedule:hover {
+  background-color: #5a67d8;
 }
 
 .schedule-list-section h2 {
@@ -225,6 +260,14 @@
 .schedule-date {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.schedule-time-badge {
+  color: var(--text-secondary);
+  font-size: 13px;
+  background-color: var(--bg-dark);
+  padding: 4px 8px;
+  border-radius: 8px;
 }
 
 .schedule-title {

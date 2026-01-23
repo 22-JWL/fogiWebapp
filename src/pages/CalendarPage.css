@@ -93,6 +93,21 @@
   position: relative;
 }
 
+.calendar-cell.clickable {
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.calendar-cell.clickable:hover {
+  background-color: var(--primary-color);
+}
+
+.calendar-cell.selected {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
 .calendar-cell.empty {
   background: transparent;
 }
@@ -221,6 +236,15 @@
 .schedule-date {
   font-size: 13px;
   color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.schedule-time-badge {
+  font-size: 12px;
+  color: var(--text-secondary);
+  background-color: var(--bg-dark);
+  padding: 4px 8px;
+  border-radius: 8px;
   white-space: nowrap;
 }
 

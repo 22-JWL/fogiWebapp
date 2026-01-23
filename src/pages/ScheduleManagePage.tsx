@@ -15,6 +15,10 @@ export default function ScheduleManagePage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -200,7 +204,10 @@ export default function ScheduleManagePage() {
   const changeMonth = (delta: number) => {
     const [year, month] = selectedMonth.split('-').map(Number)
     const newDate = new Date(year, month - 1 + delta, 1)
-    setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`)
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
+    setSelectedMonth(newMonth)
+    // 월 변경 시 해당 월의 1일로 selectedDate 업데이트
+    setSelectedDate(`${newMonth}-01`)
   }
 
   const formatMonthDisplay = () => {
@@ -234,7 +241,18 @@ export default function ScheduleManagePage() {
 
   const handleDayClick = (day: number) => {
     const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`
-    openNewForm(dateStr)
+    setSelectedDate(dateStr)
+  }
+
+  // 선택된 날짜의 일정 필터링 및 startTime 기준 정렬
+  const filteredSchedules = schedules
+    .filter(s => s.date === selectedDate)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  // 선택된 날짜 포맷팅 (표시용)
+  const formatSelectedDate = () => {
+    const [year, month, day] = selectedDate.split('-')
+    return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`
   }
 
   return (
@@ -256,7 +274,7 @@ export default function ScheduleManagePage() {
 
             {/* 캘린더 */}
             <div className="calendar-container">
-              <p className="calendar-hint">날짜를 클릭하여 일정 등록</p>
+              <p className="calendar-hint">날짜를 클릭하여 일정 확인</p>
               <div className="mini-calendar">
                 <div className="calendar-header">
                   {['일', '월', '화', '수', '목', '금', '토'].map(d => (
@@ -266,10 +284,12 @@ export default function ScheduleManagePage() {
                 <div className="calendar-grid">
                   {generateCalendarDays().map((day, idx) => {
                     const daySchedules = day ? getSchedulesForDay(day) : []
+                    const dateStr = day ? `${selectedMonth}-${String(day).padStart(2, '0')}` : ''
+                    const isSelected = dateStr === selectedDate
                     return (
                       <div
                         key={idx}
-                        className={`calendar-cell ${day ? 'clickable' : 'empty'}`}
+                        className={`calendar-cell ${day ? 'clickable' : 'empty'} ${isSelected ? 'selected' : ''}`}
                         onClick={() => day && handleDayClick(day)}
                       >
                         {day && (
@@ -299,53 +319,56 @@ export default function ScheduleManagePage() {
               {/* <span className="legend-item"><span className="dot birthday"></span> 생일</span> */}
             </div>
 
-            {/* 이번 달 일정 목록 */}
+            {/* 선택된 날짜 일정 목록 */}
             <div className="schedule-list-section">
-              <h2>이번 달 일정</h2>
+              <div className="schedule-list-header">
+                <h2>{formatSelectedDate()} 일정</h2>
+                <button
+                  className="btn-add-schedule"
+                  onClick={() => openNewForm(selectedDate)}
+                >
+                  + 일정 추가
+                </button>
+              </div>
               {loading ? (
                 <p className="loading-text">로딩 중...</p>
+              ) : filteredSchedules.length === 0 ? (
+                <p className="empty-text">등록된 일정이 없습니다.</p>
               ) : (
                 <>
-                  {schedules
-                    .filter(s => s.date.startsWith(selectedMonth))
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map(schedule => (
-                      <div key={schedule.id} className="schedule-card">
-                        <div className="schedule-header">
-                          <span className={`schedule-type ${schedule.type}`}>
-                            {SCHEDULE_TYPE_LABELS[schedule.type]}
-                          </span>
-                          <span className="schedule-date">{schedule.date}</span>
-                        </div>
-                        <h3 className="schedule-title">{schedule.title}</h3>
-                        <p className="schedule-time">
+                  {filteredSchedules.map(schedule => (
+                    <div key={schedule.id} className="schedule-card">
+                      <div className="schedule-header">
+                        <span className={`schedule-type ${schedule.type}`}>
+                          {SCHEDULE_TYPE_LABELS[schedule.type]}
+                        </span>
+                        <span className="schedule-time-badge">
                           {schedule.startTime} - {schedule.endTime}
-                        </p>
-                        <p className="schedule-location">{schedule.location}</p>
-                        {schedule.referenceLink && (
-                          <a
-                            href={schedule.referenceLink}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="reference-link-btn"
-                            onClick={(e) => e.stopPropagation()}
-                          >
-                            🔗 링크 열기
-                          </a>
-                        )}
-                        <div className="schedule-actions">
-                          <button onClick={() => openEditForm(schedule)} className="btn-edit">
-                            수정
-                          </button>
-                          <button onClick={() => handleDelete(schedule)} className="btn-delete">
-                            삭제
-                          </button>
-                        </div>
+                        </span>
                       </div>
-                    ))}
-                  {schedules.filter(s => s.date.startsWith(selectedMonth)).length === 0 && (
-                    <p className="empty-text">이번 달 등록된 일정이 없습니다.</p>
-                  )}
+                      <h3 className="schedule-title">{schedule.title}</h3>
+                      <p className="schedule-location">{schedule.location}</p>
+                      {schedule.referenceLink && (
+                        <a
+                          href={schedule.referenceLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="reference-link-btn"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          🔗 링크 열기
+                        </a>
+                      )}
+                      <div className="schedule-actions">
+                        <button onClick={() => openEditForm(schedule)} className="btn-edit">
+                          수정
+                        </button>
+                        <button onClick={() => handleDelete(schedule)} className="btn-delete">
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </>
               )}
             </div>
