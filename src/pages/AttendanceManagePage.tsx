@@ -12,6 +12,14 @@ export default function AttendanceManagePage() {
   const [selectedSchedule, setSelectedSchedule] = useState<Schedule | null>(null)
   const [loading, setLoading] = useState(true)
   const [attendanceMap, setAttendanceMap] = useState<Record<string, AttendanceStatus>>({})
+  const [selectedMonth, setSelectedMonth] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
+  })
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
 
   // 매니저가 아니면 접근 불가
   if (!currentUser || currentUser.role !== 'manager') {
@@ -105,6 +113,63 @@ export default function AttendanceManagePage() {
     })
   }
 
+  // 월 변경
+  const changeMonth = (delta: number) => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const newDate = new Date(year, month - 1 + delta, 1)
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
+    setSelectedMonth(newMonth)
+    setSelectedDate(`${newMonth}-01`)
+    setSelectedSchedule(null)
+  }
+
+  const formatMonthDisplay = () => {
+    const [year, month] = selectedMonth.split('-')
+    return `${year}년 ${parseInt(month)}월`
+  }
+
+  // 캘린더 날짜 생성
+  const generateCalendarDays = () => {
+    const [year, month] = selectedMonth.split('-').map(Number)
+    const firstDay = new Date(year, month - 1, 1)
+    const lastDay = new Date(year, month, 0)
+    const startPadding = firstDay.getDay()
+    const days: (number | null)[] = []
+
+    for (let i = 0; i < startPadding; i++) {
+      days.push(null)
+    }
+
+    for (let i = 1; i <= lastDay.getDate(); i++) {
+      days.push(i)
+    }
+
+    return days
+  }
+
+  const getSchedulesForDay = (day: number) => {
+    const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`
+    return schedules.filter(s => s.date === dateStr)
+  }
+
+  // 날짜 클릭 핸들러
+  const handleDayClick = (day: number) => {
+    const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`
+    setSelectedDate(dateStr)
+    setSelectedSchedule(null)
+  }
+
+  // 선택된 날짜의 일정 필터링 및 startTime 기준 정렬
+  const filteredSchedules = schedules
+    .filter(s => s.date === selectedDate)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  // 선택된 날짜 포맷팅 (표시용)
+  const formatSelectedDate = () => {
+    const [year, month, day] = selectedDate.split('-')
+    return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`
+  }
+
   return (
     <div className="attendance-manage-page">
       <header className="page-header">
@@ -113,14 +178,64 @@ export default function AttendanceManagePage() {
       </header>
 
       <main className="page-content">
+        {/* 월 선택 */}
+        <div className="month-selector">
+          <button onClick={() => changeMonth(-1)} className="month-btn">&lt;</button>
+          <span className="month-display">{formatMonthDisplay()}</span>
+          <button onClick={() => changeMonth(1)} className="month-btn">&gt;</button>
+        </div>
+
+        {/* 캘린더 */}
+        <div className="mini-calendar">
+          <div className="calendar-header">
+            {['일', '월', '화', '수', '목', '금', '토'].map(d => (
+              <div key={d} className="calendar-day-name">{d}</div>
+            ))}
+          </div>
+          <div className="calendar-grid">
+            {generateCalendarDays().map((day, idx) => {
+              const daySchedules = day ? getSchedulesForDay(day) : []
+              const dateStr = day ? `${selectedMonth}-${String(day).padStart(2, '0')}` : ''
+              const isSelected = dateStr === selectedDate
+              return (
+                <div
+                  key={idx}
+                  className={`calendar-cell ${day ? 'clickable' : 'empty'} ${isSelected ? 'selected' : ''}`}
+                  onClick={() => day && handleDayClick(day)}
+                >
+                  {day && (
+                    <>
+                      <span className="day-number">{day}</span>
+                      {daySchedules.length > 0 && (
+                        <div className="day-dots">
+                          {daySchedules.slice(0, 3).map(s => (
+                            <span key={s.id} className={`dot ${s.type}`}></span>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+
+        {/* 범례 */}
+        <div className="legend">
+          <span className="legend-item"><span className="dot practice"></span> 연습</span>
+          <span className="legend-item"><span className="dot performance"></span> 공연</span>
+          <span className="legend-item"><span className="dot meeting"></span> 회식</span>
+        </div>
+
         {/* 일정 선택 */}
         <div className="schedule-selector">
-          <h2>일정 선택</h2>
-          {schedules.length === 0 ? (
+          <h2>{formatSelectedDate()} 일정</h2>
+          {filteredSchedules.length === 0 ? (
             <p className="empty-text">등록된 일정이 없습니다.</p>
           ) : (
             <div className="schedule-list">
-              {schedules.map(schedule => (
+              {filteredSchedules.map(schedule => (
                 <button
                   key={schedule.id}
                   className={`schedule-item ${selectedSchedule?.id === schedule.id ? 'selected' : ''}`}
@@ -133,7 +248,7 @@ export default function AttendanceManagePage() {
                   </span>
                   <div className="schedule-item-info">
                     <span className="schedule-item-title">{schedule.title}</span>
-                    <span className="schedule-item-date">{formatScheduleDate(schedule.date)}</span>
+                    <span className="schedule-item-time">{schedule.startTime} - {schedule.endTime}</span>
                   </div>
                 </button>
               ))}
@@ -205,7 +320,7 @@ export default function AttendanceManagePage() {
           </>
         )}
 
-        {!selectedSchedule && schedules.length > 0 && (
+        {!selectedSchedule && filteredSchedules.length > 0 && (
           <div className="select-hint">
             <p>출석을 관리할 일정을 선택하세요</p>
           </div>
