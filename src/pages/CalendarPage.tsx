@@ -34,13 +34,17 @@ export default function CalendarPage() {
     const usersSnapshot = await getDocs(collection(db, 'users'))
     setTotalMembers(usersSnapshot.size)
 
-    // 일정 조회
-    const q = query(collection(db, 'schedules'), orderBy('date', 'asc'))
+    // 선택된 월의 일정만 조회 (Firestore에서 필터링)
+    const startOfMonth = `${selectedMonth}-01`
+    const endOfMonth = `${selectedMonth}-31`
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth),
+      orderBy('date', 'asc')
+    )
     const snapshot = await getDocs(q)
-    const allSchedules = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
-
-    // 선택된 월의 일정만 필터링
-    const filtered = allSchedules.filter(s => s.date.startsWith(selectedMonth))
+    const filtered = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
     setSchedules(filtered)
 
     // 내 RSVP 상태 조회 + 일정별 RSVP 통계

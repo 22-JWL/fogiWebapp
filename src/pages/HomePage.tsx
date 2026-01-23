@@ -72,21 +72,27 @@ export default function HomePage() {
   const loadDashboardData = async () => {
     setIsLoading(true)
     try {
-      // 오늘 이후의 일정 가져오기 (최대 5개)
+      // 오늘 이후의 일정 가져오기 (최대 2개)
+      // Firestore에서 date로 정렬 후, 클라이언트에서 startTime으로 추가 정렬
       const today = new Date().toISOString().split('T')[0]
       const schedulesSnap = await getDocs(
         query(
           collection(db, 'schedules'),
           where('date', '>=', today),
           orderBy('date', 'asc'),
-          limit(2)
+          limit(10) // 여유있게 가져온 후 클라이언트에서 정렬
         )
       )
       const schedules: Schedule[] = []
       schedulesSnap.forEach((doc) => {
         schedules.push({ id: doc.id, ...doc.data() } as Schedule)
       })
-      setUpcomingSchedules(schedules)
+      // 클라이언트 측 정렬: date → startTime 순
+      schedules.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date)
+        return a.startTime.localeCompare(b.startTime)
+      })
+      setUpcomingSchedules(schedules.slice(0, 2))
 
       // // 최근 공지사항 가져오기 (최대 5개)
       // const notificationsSnap = await getDocs(

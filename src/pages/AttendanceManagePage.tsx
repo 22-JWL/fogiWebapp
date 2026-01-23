@@ -36,8 +36,11 @@ export default function AttendanceManagePage() {
 
   useEffect(() => {
     fetchMembers()
-    fetchSchedules()
   }, [])
+
+  useEffect(() => {
+    fetchSchedules()
+  }, [selectedMonth])
 
   useEffect(() => {
     if (selectedSchedule) {
@@ -48,7 +51,15 @@ export default function AttendanceManagePage() {
   }, [selectedSchedule])
 
   const fetchSchedules = async () => {
-    const q = query(collection(db, 'schedules'), orderBy('date', 'desc'))
+    // 선택된 월의 일정만 조회 (Firestore에서 필터링)
+    const startOfMonth = `${selectedMonth}-01`
+    const endOfMonth = `${selectedMonth}-31`
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth),
+      orderBy('date', 'asc')
+    )
     const snapshot = await getDocs(q)
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
     setSchedules(data)

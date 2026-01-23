@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
@@ -49,11 +49,19 @@ export default function ScheduleManagePage() {
 
   useEffect(() => {
     fetchSchedules()
-  }, [])
+  }, [selectedMonth])
 
   const fetchSchedules = async () => {
     setLoading(true)
-    const q = query(collection(db, 'schedules'), orderBy('date', 'desc'))
+    // 선택된 월의 일정만 조회 (Firestore에서 필터링)
+    const startOfMonth = `${selectedMonth}-01`
+    const endOfMonth = `${selectedMonth}-31`
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth),
+      orderBy('date', 'asc')
+    )
     const snapshot = await getDocs(q)
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
     setSchedules(data)
