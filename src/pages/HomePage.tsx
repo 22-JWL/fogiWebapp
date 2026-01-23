@@ -3,7 +3,7 @@ import { collection, getDocs, query, orderBy, limit, where } from 'firebase/fire
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { setupForegroundMessageListener, requestNotificationPermission } from '../firebase/fcm'
-import { doc, getDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore'
 import { Schedule, SCHEDULE_TYPE_LABELS, PART_LABELS } from '../types'
 import HeroBanner from '../components/HeroBanner'
 import ConcertPoster from '../components/ConcertPoster'
@@ -64,6 +64,21 @@ export default function HomePage() {
       }
     } catch (error) {
       console.error('알림 등록 실패:', error)
+    } finally {
+      setIsRegistering(false)
+    }
+  }
+
+  const handleDisableNotifications = async () => {
+    if (!currentUser) return
+    setIsRegistering(true)
+    try {
+      await updateDoc(doc(db, 'users', currentUser.id), {
+        fcmToken: deleteField()
+      })
+      setHasToken(false)
+    } catch (error) {
+      console.error('알림 해제 실패:', error)
     } finally {
       setIsRegistering(false)
     }
@@ -155,15 +170,13 @@ export default function HomePage() {
             안녕하세요, <strong>{currentUser.name}</strong>님!
           </p>
         </div>
-        {!hasToken && (
-          <button
-            className="notification-btn"
-            onClick={handleEnableNotifications}
-            disabled={isRegistering}
-          >
-            {isRegistering ? '...' : '🔔'}
-          </button>
-         )}
+        <button
+          className={`notification-btn ${hasToken ? 'active' : ''}`}
+          onClick={hasToken ? handleDisableNotifications : handleEnableNotifications}
+          disabled={isRegistering}
+        >
+          {isRegistering ? '...' : hasToken ? '🔔' : '🔕'}
+        </button>
       </header>
 
       <main className="main-content">
