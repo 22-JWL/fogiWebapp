@@ -1,7 +1,6 @@
 .app-footer {
   background: linear-gradient(180deg, #1a1a2e 0%, #2d1f3d 100%);
   padding: 40px 20px 100px;
-  margin-top: 20px;
 }
 
 .footer-grid {
@@ -14,7 +13,8 @@
 
 @media (min-width: 600px) {
   .footer-grid {
-    grid-template-columns: 1.5fr 1fr 1fr;
+    grid-template-columns: 1.5fr;
+     /* 1fr 1fr; */
     gap: 40px;
   }
 }

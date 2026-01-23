@@ -20,6 +20,7 @@ export interface User {
   email: string
   role: UserRole
   part: Part
+  birthday: string // YYYY-MM-DD
   fcmToken?: string
   createdAt: string
 }
@@ -43,12 +44,19 @@ export interface NotificationPayload {
 }
 
 // 일정 타입
-export type ScheduleType = 'practice' | 'performance' | 'meeting'
+export type ScheduleType = 'practice' | 'performance' | 'meeting' | 'birthday'
 
 export const SCHEDULE_TYPE_LABELS: Record<ScheduleType, string> = {
   practice: '연습',
   performance: '공연',
-  meeting: '회의'
+  meeting: '회식',
+  birthday: '생일'
+}
+
+// 미리 알림 (분 단위로 저장)
+export interface Reminder {
+  minutes: number // 분 단위
+  label: string   // "30분 전", "2시간 전" 등
 }
 
 // 일정
@@ -61,6 +69,9 @@ export interface Schedule {
   endTime: string // HH:mm
   location: string
   description?: string
+  referenceLink?: string // 참고 링크 URL
+  reminders?: Reminder[] // 미리 알림 목록 (최대 3개)
+  sentReminders?: number[] // 이미 발송된 리마인더 (분 단위 값 목록)
   createdBy: string
   createdAt: string
   updatedAt?: string

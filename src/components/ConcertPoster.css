@@ -14,7 +14,7 @@
 
 .poster-swiper {
   width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .poster-slide {
@@ -100,4 +100,104 @@
   height: 80px;
   border-radius: 50%;
   background: rgba(255, 255, 255, 0.03);
+}
+
+/* Image Modal */
+.image-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  padding: 20px;
+  animation: fadeIn 0.2s ease;
+  overflow-y: auto;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.modal-content {
+  position: relative;
+  max-width: 500px;
+  width: 100%;
+  background-color: var(--bg-card);
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.modal-content img {
+  width: 100%;
+  max-height: 60vh;
+  object-fit: contain;
+  background-color: #000;
+}
+
+.modal-close {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.5);
+  border: none;
+  border-radius: 50%;
+  color: white;
+  font-size: 24px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+}
+
+.modal-close:hover {
+  background: rgba(0, 0, 0, 0.7);
+}
+
+.modal-info {
+  padding: 20px;
+}
+
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0 0 12px;
+}
+
+.modal-meta {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 12px;
+}
+
+.modal-date,
+.modal-venue {
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.modal-date::before {
+  content: '📅 ';
+}
+
+.modal-venue::before {
+  content: '📍 ';
+}
+
+.modal-description {
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  padding-top: 12px;
+  border-top: 1px solid #333;
 }

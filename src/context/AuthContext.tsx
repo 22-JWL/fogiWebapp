@@ -15,7 +15,7 @@ interface AuthContextType {
   firebaseUser: FirebaseUser | null
   loading: boolean
   signIn: (email: string, password: string) => Promise<void>
-  signUp: (email: string, password: string, name: string, part: Part) => Promise<void>
+  signUp: (email: string, password: string, name: string, part: Part, birthday: string) => Promise<void>
   signOut: () => Promise<void>
 }
 
@@ -62,7 +62,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
     await signInWithEmailAndPassword(auth, email, password)
   }
 
-  const signUp = async (email: string, password: string, name: string, part: Part) => {
+  const signUp = async (email: string, password: string, name: string, part: Part, birthday: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password)
 
     // 첫 번째 사용자는 manager, 나머지는 member
@@ -73,6 +73,7 @@ export function AuthProvider({ children }: AuthProviderProps) {
       email,
       role,
       part,
+      birthday,
       createdAt: new Date().toISOString()
     }
 

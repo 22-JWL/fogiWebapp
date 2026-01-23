@@ -8,6 +8,8 @@ import AttendanceStatsPage from './pages/AttendanceStatsPage'
 import MyPage from './pages/MyPage'
 import SendNotificationPage from './pages/SendNotificationPage'
 import ScheduleManagePage from './pages/ScheduleManagePage'
+import AttendanceManagePage from './pages/AttendanceManagePage'
+import RsvpManagePage from './pages/RsvpManagePage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()
@@ -80,6 +82,22 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <ScheduleManagePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/attendance-manage"
+        element={
+          <PrivateRoute>
+            <AttendanceManagePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/rsvp-manage"
+        element={
+          <PrivateRoute>
+            <RsvpManagePage />
           </PrivateRoute>
         }
       />

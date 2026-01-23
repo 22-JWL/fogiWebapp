@@ -166,6 +166,16 @@ export default function MyPage() {
               <span className="menu-text">일정 관리</span>
               <span className="menu-arrow">›</span>
             </a>
+            <a href="/attendance-manage" className="menu-link">
+              <span className="menu-icon">✅</span>
+              <span className="menu-text">출석 관리</span>
+              <span className="menu-arrow">›</span>
+            </a>
+            <a href="/rsvp-manage" className="menu-link">
+              <span className="menu-icon">📋</span>
+              <span className="menu-text">참석 예정 확인</span>
+              <span className="menu-arrow">›</span>
+            </a>
           </section>
         )}
 
@@ -181,7 +191,7 @@ export default function MyPage() {
         </section>
 
         <footer className="mypage-footer">
-          <p>Dizzying F.O.G.I. v1.1.0</p>
+          <p>Dizzying F.O.G.I. v2.1.0</p>
         </footer>
       </div>
     </div>

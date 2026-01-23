@@ -1,8 +1,8 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User } from '../types'
+import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
 import './ScheduleManagePage.css'
 
 export default function ScheduleManagePage() {
@@ -15,6 +15,10 @@ export default function ScheduleManagePage() {
     const now = new Date()
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`
   })
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+  })
 
   // 폼 상태
   const [title, setTitle] = useState('')
@@ -24,6 +28,10 @@ export default function ScheduleManagePage() {
   const [endTime, setEndTime] = useState('21:00')
   const [location, setLocation] = useState('')
   const [description, setDescription] = useState('')
+  const [referenceLink, setReferenceLink] = useState('')
+  const [reminders, setReminders] = useState<Reminder[]>([])
+  const [reminderValue, setReminderValue] = useState(1)
+  const [reminderUnit, setReminderUnit] = useState<'minutes' | 'hours' | 'days'>('hours')
   const [submitting, setSubmitting] = useState(false)
 
   // 매니저가 아니면 접근 불가
@@ -41,11 +49,19 @@ export default function ScheduleManagePage() {
 
   useEffect(() => {
     fetchSchedules()
-  }, [])
+  }, [selectedMonth])
 
   const fetchSchedules = async () => {
     setLoading(true)
-    const q = query(collection(db, 'schedules'), orderBy('date', 'desc'))
+    // 선택된 월의 일정만 조회 (Firestore에서 필터링)
+    const startOfMonth = `${selectedMonth}-01`
+    const endOfMonth = `${selectedMonth}-31`
+    const q = query(
+      collection(db, 'schedules'),
+      where('date', '>=', startOfMonth),
+      where('date', '<=', endOfMonth),
+      orderBy('date', 'asc')
+    )
     const snapshot = await getDocs(q)
     const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
     setSchedules(data)
@@ -60,6 +76,10 @@ export default function ScheduleManagePage() {
     setEndTime('21:00')
     setLocation('')
     setDescription('')
+    setReferenceLink('')
+    setReminders([])
+    setReminderValue(1)
+    setReminderUnit('hours')
     setEditingSchedule(null)
     setShowForm(false)
   }
@@ -79,7 +99,36 @@ export default function ScheduleManagePage() {
     setEndTime(schedule.endTime)
     setLocation(schedule.location)
     setDescription(schedule.description || '')
+    setReferenceLink(schedule.referenceLink || '')
+    setReminders(schedule.reminders || [])
+    setReminderValue(1)
+    setReminderUnit('hours')
     setShowForm(true)
+  }
+
+  // 리마인더 추가
+  const addReminder = () => {
+    if (reminders.length >= 3) return
+
+    // 분 단위로 변환
+    let minutes = reminderValue
+    if (reminderUnit === 'hours') minutes = reminderValue * 60
+    if (reminderUnit === 'days') minutes = reminderValue * 1440
+
+    // 중복 체크
+    if (reminders.some(r => r.minutes === minutes)) return
+
+    // 라벨 생성
+    const unitLabels = { minutes: '분', hours: '시간', days: '일' }
+    const label = `${reminderValue}${unitLabels[reminderUnit]} 전`
+
+    setReminders([...reminders, { minutes, label }])
+    setReminderValue(1)
+  }
+
+  // 리마인더 삭제
+  const removeReminder = (minutes: number) => {
+    setReminders(reminders.filter(r => r.minutes !== minutes))
   }
 
   const sendNotification = async (scheduleTitle: string, isUpdate: boolean) => {
@@ -118,6 +167,8 @@ export default function ScheduleManagePage() {
         endTime,
         location,
         description: description || null,
+        referenceLink: referenceLink || null,
+        reminders: reminders.length > 0 ? reminders : null,
         createdBy: currentUser.id
       }
 
@@ -161,7 +212,10 @@ export default function ScheduleManagePage() {
   const changeMonth = (delta: number) => {
     const [year, month] = selectedMonth.split('-').map(Number)
     const newDate = new Date(year, month - 1 + delta, 1)
-    setSelectedMonth(`${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`)
+    const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
+    setSelectedMonth(newMonth)
+    // 월 변경 시 해당 월의 1일로 selectedDate 업데이트
+    setSelectedDate(`${newMonth}-01`)
   }
 
   const formatMonthDisplay = () => {
@@ -195,7 +249,18 @@ export default function ScheduleManagePage() {
 
   const handleDayClick = (day: number) => {
     const dateStr = `${selectedMonth}-${String(day).padStart(2, '0')}`
-    openNewForm(dateStr)
+    setSelectedDate(dateStr)
+  }
+
+  // 선택된 날짜의 일정 필터링 및 startTime 기준 정렬
+  const filteredSchedules = schedules
+    .filter(s => s.date === selectedDate)
+    .sort((a, b) => a.startTime.localeCompare(b.startTime))
+
+  // 선택된 날짜 포맷팅 (표시용)
+  const formatSelectedDate = () => {
+    const [year, month, day] = selectedDate.split('-')
+    return `${year}년 ${parseInt(month)}월 ${parseInt(day)}일`
   }
 
   return (
@@ -217,7 +282,7 @@ export default function ScheduleManagePage() {
 
             {/* 캘린더 */}
             <div className="calendar-container">
-              <p className="calendar-hint">날짜를 클릭하여 일정 등록</p>
+              <p className="calendar-hint">날짜를 클릭하여 일정 확인</p>
               <div className="mini-calendar">
                 <div className="calendar-header">
                   {['일', '월', '화', '수', '목', '금', '토'].map(d => (
@@ -227,10 +292,12 @@ export default function ScheduleManagePage() {
                 <div className="calendar-grid">
                   {generateCalendarDays().map((day, idx) => {
                     const daySchedules = day ? getSchedulesForDay(day) : []
+                    const dateStr = day ? `${selectedMonth}-${String(day).padStart(2, '0')}` : ''
+                    const isSelected = dateStr === selectedDate
                     return (
                       <div
                         key={idx}
-                        className={`calendar-cell ${day ? 'clickable' : 'empty'}`}
+                        className={`calendar-cell ${day ? 'clickable' : 'empty'} ${isSelected ? 'selected' : ''}`}
                         onClick={() => day && handleDayClick(day)}
                       >
                         {day && (
@@ -256,45 +323,60 @@ export default function ScheduleManagePage() {
             <div className="legend">
               <span className="legend-item"><span className="dot practice"></span> 연습</span>
               <span className="legend-item"><span className="dot performance"></span> 공연</span>
-              <span className="legend-item"><span className="dot meeting"></span> 회의</span>
+              <span className="legend-item"><span className="dot meeting"></span> 회식</span>
+              {/* <span className="legend-item"><span className="dot birthday"></span> 생일</span> */}
             </div>
 
-            {/* 이번 달 일정 목록 */}
+            {/* 선택된 날짜 일정 목록 */}
             <div className="schedule-list-section">
-              <h2>이번 달 일정</h2>
+              <div className="schedule-list-header">
+                <h2>{formatSelectedDate()} 일정</h2>
+                <button
+                  className="btn-add-schedule"
+                  onClick={() => openNewForm(selectedDate)}
+                >
+                  + 일정 추가
+                </button>
+              </div>
               {loading ? (
                 <p className="loading-text">로딩 중...</p>
+              ) : filteredSchedules.length === 0 ? (
+                <p className="empty-text">등록된 일정이 없습니다.</p>
               ) : (
                 <>
-                  {schedules
-                    .filter(s => s.date.startsWith(selectedMonth))
-                    .sort((a, b) => a.date.localeCompare(b.date))
-                    .map(schedule => (
-                      <div key={schedule.id} className="schedule-card">
-                        <div className="schedule-header">
-                          <span className={`schedule-type ${schedule.type}`}>
-                            {SCHEDULE_TYPE_LABELS[schedule.type]}
-                          </span>
-                          <span className="schedule-date">{schedule.date}</span>
-                        </div>
-                        <h3 className="schedule-title">{schedule.title}</h3>
-                        <p className="schedule-time">
+                  {filteredSchedules.map(schedule => (
+                    <div key={schedule.id} className="schedule-card">
+                      <div className="schedule-header">
+                        <span className={`schedule-type ${schedule.type}`}>
+                          {SCHEDULE_TYPE_LABELS[schedule.type]}
+                        </span>
+                        <span className="schedule-time-badge">
                           {schedule.startTime} - {schedule.endTime}
-                        </p>
-                        <p className="schedule-location">{schedule.location}</p>
-                        <div className="schedule-actions">
-                          <button onClick={() => openEditForm(schedule)} className="btn-edit">
-                            수정
-                          </button>
-                          <button onClick={() => handleDelete(schedule)} className="btn-delete">
-                            삭제
-                          </button>
-                        </div>
+                        </span>
                       </div>
-                    ))}
-                  {schedules.filter(s => s.date.startsWith(selectedMonth)).length === 0 && (
-                    <p className="empty-text">이번 달 등록된 일정이 없습니다.</p>
-                  )}
+                      <h3 className="schedule-title">{schedule.title}</h3>
+                      <p className="schedule-location">{schedule.location}</p>
+                      {schedule.referenceLink && (
+                        <a
+                          href={schedule.referenceLink}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="reference-link-btn"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          🔗 링크 열기
+                        </a>
+                      )}
+                      <div className="schedule-actions">
+                        <button onClick={() => openEditForm(schedule)} className="btn-edit">
+                          수정
+                        </button>
+                        <button onClick={() => handleDelete(schedule)} className="btn-delete">
+                          삭제
+                        </button>
+                      </div>
+                    </div>
+                  ))}
                 </>
               )}
             </div>
@@ -389,6 +471,66 @@ export default function ScheduleManagePage() {
                 placeholder="추가 안내사항"
                 rows={3}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="referenceLink">참고 링크 (선택)</label>
+              <input
+                type="url"
+                id="referenceLink"
+                value={referenceLink}
+                onChange={(e) => setReferenceLink(e.target.value)}
+                placeholder="https://..."
+              />
+            </div>
+
+            <div className="form-group">
+              <label>미리 알림 (최대 3개)</label>
+              <div className="reminder-input-group">
+                <input
+                  type="number"
+                  min="1"
+                  max="99"
+                  value={reminderValue}
+                  onChange={(e) => setReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="reminder-value-input"
+                />
+                <select
+                  value={reminderUnit}
+                  onChange={(e) => setReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
+                  className="reminder-unit-select"
+                >
+                  <option value="minutes">분 전</option>
+                  <option value="hours">시간 전</option>
+                  <option value="days">일 전</option>
+                </select>
+                <button
+                  type="button"
+                  onClick={addReminder}
+                  disabled={reminders.length >= 3}
+                  className="reminder-add-btn"
+                >
+                  추가
+                </button>
+              </div>
+              {reminders.length > 0 && (
+                <div className="reminder-chips">
+                  {reminders
+                    .sort((a, b) => a.minutes - b.minutes)
+                    .map(reminder => (
+                      <span key={reminder.minutes} className="reminder-chip">
+                        {reminder.label}
+                        <button
+                          type="button"
+                          onClick={() => removeReminder(reminder.minutes)}
+                          className="chip-remove"
+                        >
+                          ×
+                        </button>
+                      </span>
+                    ))}
+                </div>
+              )}
             </div>
 
             <div className="form-actions">

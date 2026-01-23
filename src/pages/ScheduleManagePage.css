@@ -112,6 +112,12 @@
   background-color: var(--primary-color);
 }
 
+.calendar-cell.selected {
+  background-color: var(--primary-color);
+  color: white;
+  font-weight: 600;
+}
+
 .calendar-cell.empty {
   background: transparent;
 }
@@ -143,6 +149,10 @@
   background-color: #2ecc71;
 }
 
+.dot.birthday {
+  background-color: #e91e63;
+}
+
 /* Legend */
 .legend {
   display: flex;
@@ -162,6 +172,35 @@
 /* Schedule List Section */
 .schedule-list-section {
   margin-top: 8px;
+}
+
+.schedule-list-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.schedule-list-header h2 {
+  font-size: 1rem;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+.btn-add-schedule {
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-add-schedule:hover {
+  background-color: #5a67d8;
 }
 
 .schedule-list-section h2 {
@@ -213,9 +252,22 @@
   color: white;
 }
 
+.schedule-type.birthday {
+  background-color: #e91e63;
+  color: white;
+}
+
 .schedule-date {
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.schedule-time-badge {
+  color: var(--text-secondary);
+  font-size: 13px;
+  background-color: var(--bg-dark);
+  padding: 4px 8px;
+  border-radius: 8px;
 }
 
 .schedule-title {
@@ -228,6 +280,28 @@
   color: var(--text-secondary);
   font-size: 14px;
   margin-bottom: 4px;
+}
+
+/* Reference Link Button */
+.reference-link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-top: 10px;
+  padding: 8px 14px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: 20px;
+  text-decoration: none;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.reference-link-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
 .schedule-actions {
@@ -346,4 +420,118 @@
 .access-denied p {
   color: var(--text-secondary);
   margin-bottom: 24px;
+}
+
+/* Reminder Input Group */
+.reminder-input-group {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.reminder-value-input {
+  width: 70px;
+  padding: 10px 12px;
+  text-align: center;
+  font-size: 15px;
+  border-radius: 10px;
+  background-color: var(--bg-dark);
+  border: 1px solid #444;
+  color: var(--text-primary);
+}
+
+.reminder-value-input:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.reminder-unit-select {
+  flex: 1;
+  padding: 10px 12px;
+  font-size: 14px;
+  border-radius: 10px;
+  background-color: var(--bg-dark);
+  border: 1px solid #444;
+  color: var(--text-primary);
+  cursor: pointer;
+}
+
+.reminder-unit-select:focus {
+  border-color: var(--primary-color);
+  outline: none;
+}
+
+.reminder-add-btn {
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  border-radius: 10px;
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.reminder-add-btn:hover:not(:disabled) {
+  background-color: #5a67d8;
+}
+
+.reminder-add-btn:disabled {
+  background-color: #444;
+  color: #888;
+  cursor: not-allowed;
+}
+
+/* Reminder Chips */
+.reminder-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.reminder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+  color: #1a1a2e;
+  font-size: 13px;
+  font-weight: 600;
+  border-radius: 20px;
+  animation: chipAppear 0.2s ease;
+}
+
+@keyframes chipAppear {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.chip-remove {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background-color: rgba(0, 0, 0, 0.2);
+  color: #1a1a2e;
+  border: none;
+  border-radius: 50%;
+  font-size: 14px;
+  font-weight: bold;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.chip-remove:hover {
+  background-color: rgba(0, 0, 0, 0.4);
 }

@@ -19,8 +19,8 @@ service cloud.firestore {
 
     // 사용자 컬렉션
     match /users/{userId} {
-      // 읽기: 본인 정보 또는 매니저
-      allow read: if isOwner(userId) || isManager();
+      // 읽기: 인증된 모든 사용자 (멤버 목록 조회, 참석률 계산 등)
+      allow read: if isAuthenticated();
 
       // 생성: 인증된 사용자가 본인 문서 생성
       allow create: if isOwner(userId);
@@ -55,17 +55,27 @@ service cloud.firestore {
       allow create, update, delete: if isManager();
     }
 
-    // 출석 컬렉션
+    // 출석 컬렉션 (매니저가 관리하는 실제 출석)
     match /attendances/{attendanceId} {
       // 읽기: 인증된 사용자
       allow read: if isAuthenticated();
 
-      // 생성/수정: 본인 출석만 (attendanceId = scheduleId_userId 형식)
-      allow create, update: if isAuthenticated() &&
-        attendanceId.split('_')[1] == request.auth.uid;
+      // 생성/수정/삭제: 매니저만
+      allow create, update, delete: if isManager();
+    }
 
-      // 삭제: 불가
-      allow delete: if false;
+    // RSVP 컬렉션 (부원이 직접 입력하는 참석 예정)
+    match /rsvps/{rsvpId} {
+      // 읽기: 인증된 사용자
+      allow read: if isAuthenticated();
+
+      // 생성/수정: 본인 RSVP만 (rsvpId = scheduleId_userId 형식)
+      allow create, update: if isAuthenticated() &&
+        rsvpId.split('_')[1] == request.auth.uid;
+
+      // 삭제: 본인만
+      allow delete: if isAuthenticated() &&
+        rsvpId.split('_')[1] == request.auth.uid;
     }
   }
 }

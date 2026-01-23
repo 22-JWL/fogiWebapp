@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { setupForegroundMessageListener } from '../firebase/fcm'
+import { setupForegroundMessageListener, requestNotificationPermission } from '../firebase/fcm'
+import { doc, getDoc } from 'firebase/firestore'
 import { Schedule, SCHEDULE_TYPE_LABELS, PART_LABELS } from '../types'
 import HeroBanner from '../components/HeroBanner'
 import ConcertPoster from '../components/ConcertPoster'
@@ -27,11 +28,14 @@ export default function HomePage() {
   const [upcomingSchedules, setUpcomingSchedules] = useState<Schedule[]>([])
   // const [recentNotifications, setRecentNotifications] = useState<Notification[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [hasToken, setHasToken] = useState(false)
+  const [isRegistering, setIsRegistering] = useState(false)
 
   useEffect(() => {
     if (!currentUser) return
 
     loadDashboardData()
+    checkNotificationToken()
 
     // 포그라운드 메시지 리스너 설정
     setupForegroundMessageListener((payload) => {
@@ -42,24 +46,53 @@ export default function HomePage() {
     })
   }, [currentUser])
 
+  const checkNotificationToken = async () => {
+    if (!currentUser) return
+    const userDoc = await getDoc(doc(db, 'users', currentUser.id))
+    if (userDoc.exists() && userDoc.data().fcmToken) {
+      setHasToken(true)
+    }
+  }
+
+  const handleEnableNotifications = async () => {
+    if (!currentUser) return
+    setIsRegistering(true)
+    try {
+      const token = await requestNotificationPermission(currentUser.id)
+      if (token) {
+        setHasToken(true)
+      }
+    } catch (error) {
+      console.error('알림 등록 실패:', error)
+    } finally {
+      setIsRegistering(false)
+    }
+  }
+
   const loadDashboardData = async () => {
     setIsLoading(true)
     try {
-      // 오늘 이후의 일정 가져오기 (최대 5개)
+      // 오늘 이후의 일정 가져오기 (최대 2개)
+      // Firestore에서 date로 정렬 후, 클라이언트에서 startTime으로 추가 정렬
       const today = new Date().toISOString().split('T')[0]
       const schedulesSnap = await getDocs(
         query(
           collection(db, 'schedules'),
           where('date', '>=', today),
           orderBy('date', 'asc'),
-          limit(5)
+          limit(10) // 여유있게 가져온 후 클라이언트에서 정렬
         )
       )
       const schedules: Schedule[] = []
       schedulesSnap.forEach((doc) => {
         schedules.push({ id: doc.id, ...doc.data() } as Schedule)
       })
-      setUpcomingSchedules(schedules)
+      // 클라이언트 측 정렬: date → startTime 순
+      schedules.sort((a, b) => {
+        if (a.date !== b.date) return a.date.localeCompare(b.date)
+        return a.startTime.localeCompare(b.startTime)
+      })
+      setUpcomingSchedules(schedules.slice(0, 2))
 
       // // 최근 공지사항 가져오기 (최대 5개)
       // const notificationsSnap = await getDocs(
@@ -122,6 +155,15 @@ export default function HomePage() {
             안녕하세요, <strong>{currentUser.name}</strong>님!
           </p>
         </div>
+        {!hasToken && (
+          <button
+            className="notification-btn"
+            onClick={handleEnableNotifications}
+            disabled={isRegistering}
+          >
+            {isRegistering ? '...' : '🔔'}
+          </button>
+         )}
       </header>
 
       <main className="main-content">
@@ -158,8 +200,37 @@ export default function HomePage() {
                 <p className="empty-message">예정된 일정이 없습니다</p>
               )}
             </section>
+            <section className="photo-cta card">
+              <div className="photo-cta-content">
+                <span className="photo-icon">📸</span>
+                <div className="photo-text">
+                  <h3>추억을 공유해요!</h3>
+                  <p>공연, 연습, 모임 사진을 앨범에 올려주세요</p>
+                </div>
+              </div>
+              <a
+                href="https://www.band.us/band/96685818/album"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="photo-btn"
+              >
+                사진 올리러 가기
+              </a>
+            </section>
 
-            {/* <section className="notifications-section card">
+            <section className="quick-info card">
+              <div className="info-item">
+                <span className="info-label">내 파트</span>
+                <span className="info-value">{PART_LABELS[currentUser.part]}</span>
+              </div>
+              <div className="info-item">
+                <span className="info-label">역할</span>
+                <span className={`info-value role-badge ${currentUser.role}`}>
+                  {currentUser.role === 'manager' ? '매니저' : '멤버'}
+                </span>
+              </div>
+            </section>
+             {/* <section className="notifications-section card">
               <div className="section-header">
                 <h2>최근 공지</h2>
               </div>
@@ -181,21 +252,9 @@ export default function HomePage() {
                 <p className="empty-message">공지사항이 없습니다</p>
               )}
             </section> */}
-
-            <section className="quick-info card">
-              <div className="info-item">
-                <span className="info-label">내 파트</span>
-                <span className="info-value">{PART_LABELS[currentUser.part]}</span>
-              </div>
-              <div className="info-item">
-                <span className="info-label">역할</span>
-                <span className={`info-value role-badge ${currentUser.role}`}>
-                  {currentUser.role === 'manager' ? '매니저' : '멤버'}
-                </span>
-              </div>
-            </section>
           </>
         )}
+        
       </main>
 
       <Footer />
