@@ -72,13 +72,6 @@ export default function ConcertPoster() {
               }}
               onClick={() => handleCardClick(poster)}
             >
-              <div className="poster-icon">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5">
-                  <path d="M9 19V6l12-3v13" strokeLinecap="round" strokeLinejoin="round"/>
-                  <circle cx="6" cy="18" r="3"/>
-                  <circle cx="18" cy="16" r="3"/>
-                </svg>
-              </div>
               <div className="poster-info">
                 <h3 className="poster-title">{poster.title}</h3>
                 <p className="poster-date">{poster.date}</p>

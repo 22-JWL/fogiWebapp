@@ -14,7 +14,7 @@
 
 .poster-swiper {
   width: 100%;
-  overflow: visible;
+  overflow: hidden;
 }
 
 .poster-slide {
