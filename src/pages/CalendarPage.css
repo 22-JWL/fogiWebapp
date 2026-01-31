@@ -298,18 +298,47 @@
   box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
 }
 
-/* RSVP Rate */
-.rsvp-rate {
-  margin-top: 0;
+/* RSVP Details */
+.rsvp-details {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 8px;
 }
 
-.rsvp-rate-text {
+.rsvp-group {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
   font-size: 12px;
+}
+
+.rsvp-group-label {
+  padding: 2px 8px;
+  border-radius: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.rsvp-group.attending .rsvp-group-label {
+  background-color: rgba(46, 204, 113, 0.2);
+  color: #2ecc71;
+}
+
+.rsvp-group.late .rsvp-group-label {
+  background-color: rgba(241, 196, 15, 0.2);
+  color: #f1c40f;
+}
+
+.rsvp-group.absent .rsvp-group-label {
+  background-color: rgba(231, 76, 60, 0.2);
+  color: #e74c3c;
+}
+
+.rsvp-group-names {
   color: var(--text-secondary);
-  background-color: var(--bg-dark);
-  padding: 4px 10px;
-  border-radius: 12px;
-  display: inline-block;
+  line-height: 1.4;
 }
 
 /* Attendance Section */

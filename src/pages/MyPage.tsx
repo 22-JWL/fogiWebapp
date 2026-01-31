@@ -191,7 +191,7 @@ export default function MyPage() {
         </section>
 
         <footer className="mypage-footer">
-          <p>Dizzying F.O.G.I. v2.1.1</p>
+          <p>Dizzying F.O.G.I. v2.1.2</p>
         </footer>
       </div>
     </div>

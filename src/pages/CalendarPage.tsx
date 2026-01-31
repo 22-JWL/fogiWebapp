@@ -2,15 +2,15 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { Schedule, AttendanceStatus, SCHEDULE_TYPE_LABELS, ATTENDANCE_STATUS_LABELS } from '../types'
+import { Schedule, AttendanceStatus, SCHEDULE_TYPE_LABELS, ATTENDANCE_STATUS_LABELS, User } from '../types'
 import './CalendarPage.css'
 
 export default function CalendarPage() {
   const { currentUser } = useAuth()
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [attendances, setAttendances] = useState<Record<string, AttendanceStatus>>({})
-  const [rsvpStats, setRsvpStats] = useState<Record<string, { attending: number; late: number; total: number }>>({})
-  const [totalMembers, setTotalMembers] = useState(0)
+  const [rsvpDetails, setRsvpDetails] = useState<Record<string, { attending: User[]; late: User[]; absent: User[] }>>({})
+  const [allUsers, setAllUsers] = useState<User[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedMonth, setSelectedMonth] = useState(() => {
     const now = new Date()
@@ -30,9 +30,16 @@ export default function CalendarPage() {
   const fetchData = async () => {
     setLoading(true)
 
-    // 전체 인원 수 조회
+    // 전체 사용자 조회
     const usersSnapshot = await getDocs(collection(db, 'users'))
-    setTotalMembers(usersSnapshot.size)
+    const usersMap: Record<string, User> = {}
+    const usersList: User[] = []
+    usersSnapshot.docs.forEach(doc => {
+      const user = { id: doc.id, ...doc.data() } as User
+      usersMap[doc.id] = user
+      usersList.push(user)
+    })
+    setAllUsers(usersList)
 
     // 선택된 월의 일정만 조회 (Firestore에서 필터링)
     const startOfMonth = `${selectedMonth}-01`
@@ -47,10 +54,10 @@ export default function CalendarPage() {
     const filtered = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
     setSchedules(filtered)
 
-    // 내 RSVP 상태 조회 + 일정별 RSVP 통계
+    // 내 RSVP 상태 조회 + 일정별 RSVP 상세 정보
     if (currentUser) {
       const attendanceMap: Record<string, AttendanceStatus> = {}
-      const statsMap: Record<string, { attending: number; late: number; total: number }> = {}
+      const detailsMap: Record<string, { attending: User[]; late: User[]; absent: User[] }> = {}
 
       for (const schedule of filtered) {
         // 내 RSVP 상태
@@ -61,24 +68,30 @@ export default function CalendarPage() {
           attendanceMap[schedule.id] = rsvpDoc.data().status
         }
 
-        // 일정별 전체 RSVP 통계
+        // 일정별 전체 RSVP 상세 정보
         const rsvpQuery = query(
           collection(db, 'rsvps'),
           where('scheduleId', '==', schedule.id)
         )
         const rsvpSnapshot = await getDocs(rsvpQuery)
-        let attending = 0
-        let late = 0
-        rsvpSnapshot.docs.forEach(doc => {
-          const status = doc.data().status
-          if (status === 'attending') attending++
-          else if (status === 'late') late++
+        const attending: User[] = []
+        const late: User[] = []
+        const absent: User[] = []
+
+        rsvpSnapshot.docs.forEach(rsvpDoc => {
+          const data = rsvpDoc.data()
+          const user = usersMap[data.userId]
+          if (user) {
+            if (data.status === 'attending') attending.push(user)
+            else if (data.status === 'late') late.push(user)
+            else if (data.status === 'absent') absent.push(user)
+          }
         })
-        statsMap[schedule.id] = { attending, late, total: usersSnapshot.size }
+        detailsMap[schedule.id] = { attending, late, absent }
       }
 
       setAttendances(attendanceMap)
-      setRsvpStats(statsMap)
+      setRsvpDetails(detailsMap)
     }
 
     setLoading(false)
@@ -96,6 +109,28 @@ export default function CalendarPage() {
     })
 
     setAttendances(prev => ({ ...prev, [scheduleId]: status }))
+
+    // rsvpDetails 업데이트
+    setRsvpDetails(prev => {
+      const currentDetails = prev[scheduleId] || { attending: [], late: [], absent: [] }
+      const currentUserData = allUsers.find(u => u.id === currentUser.id)
+      if (!currentUserData) return prev
+
+      // 기존 목록에서 현재 사용자 제거
+      const newAttending = currentDetails.attending.filter(u => u.id !== currentUser.id)
+      const newLate = currentDetails.late.filter(u => u.id !== currentUser.id)
+      const newAbsent = currentDetails.absent.filter(u => u.id !== currentUser.id)
+
+      // 새 상태에 현재 사용자 추가
+      if (status === 'attending') newAttending.push(currentUserData)
+      else if (status === 'late') newLate.push(currentUserData)
+      else if (status === 'absent') newAbsent.push(currentUserData)
+
+      return {
+        ...prev,
+        [scheduleId]: { attending: newAttending, late: newLate, absent: newAbsent }
+      }
+    })
   }
 
   const changeMonth = (delta: number) => {
@@ -263,11 +298,32 @@ export default function CalendarPage() {
                         ))}
                       </div>
                     </div>
-                    {rsvpStats[schedule.id] && totalMembers > 0 && (
-                      <div className="rsvp-rate">
-                        <span className="rsvp-rate-text">
-                          {rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late}/{totalMembers}명 참석 예정 ({Math.round(((rsvpStats[schedule.id].attending + rsvpStats[schedule.id].late) / totalMembers) * 100)}%)
-                        </span>
+                    {rsvpDetails[schedule.id] && (
+                      <div className="rsvp-details">
+                        {rsvpDetails[schedule.id].attending.length > 0 && (
+                          <div className="rsvp-group attending">
+                            <span className="rsvp-group-label">참석</span>
+                            <span className="rsvp-group-names">
+                              {rsvpDetails[schedule.id].attending.map(u => u.name).join(', ')}
+                            </span>
+                          </div>
+                        )}
+                        {rsvpDetails[schedule.id].late.length > 0 && (
+                          <div className="rsvp-group late">
+                            <span className="rsvp-group-label">지각</span>
+                            <span className="rsvp-group-names">
+                              {rsvpDetails[schedule.id].late.map(u => u.name).join(', ')}
+                            </span>
+                          </div>
+                        )}
+                        {rsvpDetails[schedule.id].absent.length > 0 && (
+                          <div className="rsvp-group absent">
+                            <span className="rsvp-group-label">불참</span>
+                            <span className="rsvp-group-names">
+                              {rsvpDetails[schedule.id].absent.map(u => u.name).join(', ')}
+                            </span>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
