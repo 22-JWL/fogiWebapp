@@ -3,6 +3,14 @@ import { onSchedule } from 'firebase-functions/v2/scheduler'
 import { initializeApp } from 'firebase-admin/app'
 import { getFirestore, FieldValue } from 'firebase-admin/firestore'
 import { getMessaging } from 'firebase-admin/messaging'
+import {
+  getKoreaTime,
+  getKoreaDateString,
+  getScheduleTimestamp,
+  isValidBirthday,
+  sanitizeName,
+  getNextBirthday
+} from './dates'
 
 initializeApp()
 
@@ -44,6 +52,19 @@ interface UserDoc {
   fcmToken?: string
 }
 
+// 이 코드만 토큰을 영구 삭제한다. '토큰이 죽었다'는 뜻인 코드만 넣을 것.
+const DEAD_TOKEN_CODES = [
+  'messaging/registration-token-not-registered',
+  'messaging/invalid-registration-token',
+  'messaging/invalid-argument'
+]
+
+// Firestore 'in' 필터 값 개수 상한
+const IN_QUERY_LIMIT = 30
+
+// 미리 알림으로 지정할 수 있는 최대 일수. ScheduleManagePage 의 '일 전' 입력 상한과 반드시 같아야 한다.
+const MAX_REMINDER_DAYS = 30
+
 const SCHEDULE_TYPE_LABELS: Record<string, string> = {
   practice: '연습',
   performance: '공연',
@@ -66,6 +87,19 @@ export const sendPushNotification = onDocumentCreated(
 
     const notification = snap.data() as NotificationDoc
     const { title, body, tokens } = notification
+
+    // onDocumentCreated 는 최소 1회 전달이라 중복 실행될 수 있다.
+    // status 를 선점해 같은 알림이 두 번 나가는 것을 막는다.
+    const claimed = await db.runTransaction(async (tx) => {
+      const cur = await tx.get(snap.ref)
+      if (cur.get('status') !== 'pending') return false
+      tx.update(snap.ref, { status: 'sending' })
+      return true
+    })
+    if (!claimed) {
+      console.log('이미 처리된 알림입니다. 중복 실행 건너뜀')
+      return
+    }
 
     if (!tokens || tokens.length === 0) {
       console.log('발송할 토큰이 없습니다.')
@@ -91,27 +125,38 @@ export const sendPushNotification = onDocumentCreated(
 
       console.log(`${response.successCount}개 발송 성공, ${response.failureCount}개 실패`)
 
-      // 실패한 토큰 정리
+      // 토큰이 실제로 죽었을 때만 지운다.
+      // 503/500/APNs 설정 오류까지 무효로 보면 일시적 장애 한 번에 전원이 알림에서 조용히 빠진다.
       const failedTokens: string[] = []
       response.responses.forEach((resp, idx) => {
-        if (!resp.success) {
+        if (resp.success) return
+        const code = resp.error?.code ?? ''
+        console.error(`토큰 발송 실패: ${code} ${resp.error?.message}`)
+        if (DEAD_TOKEN_CODES.includes(code)) {
           failedTokens.push(tokens[idx])
-          console.error(`토큰 발송 실패: ${resp.error?.message}`)
         }
       })
 
-      // 무효 토큰 제거
+      // 정리는 실패해도 발송 결과를 오염시키면 안 된다 (푸시는 이미 나갔다)
       if (failedTokens.length > 0) {
-        const usersSnapshot = await db.collection('users')
-          .where('fcmToken', 'in', failedTokens)
-          .get()
+        try {
+          // Firestore 'in' 은 값 30개가 상한이라 잘라서 조회한다
+          for (let i = 0; i < failedTokens.length; i += IN_QUERY_LIMIT) {
+            const chunk = failedTokens.slice(i, i + IN_QUERY_LIMIT)
+            const usersSnapshot = await db.collection('users')
+              .where('fcmToken', 'in', chunk)
+              .get()
 
-        const batch = db.batch()
-        usersSnapshot.docs.forEach((doc) => {
-          batch.update(doc.ref, { fcmToken: FieldValue.delete() })
-        })
-        await batch.commit()
-        console.log(`${failedTokens.length}개의 무효 토큰 제거됨`)
+            const batch = db.batch()
+            usersSnapshot.docs.forEach((doc) => {
+              batch.update(doc.ref, { fcmToken: FieldValue.delete() })
+            })
+            await batch.commit()
+          }
+          console.log(`${failedTokens.length}개의 무효 토큰 제거됨`)
+        } catch (cleanupError) {
+          console.error('무효 토큰 정리 실패 (발송 자체는 성공):', cleanupError)
+        }
       }
 
       // 상태 업데이트
@@ -131,30 +176,6 @@ export const sendPushNotification = onDocumentCreated(
   }
 )
 
-// 한국 시간 (UTC+9) 가져오기
-function getKoreaTime(): Date {
-  const now = new Date()
-  // UTC 시간에 9시간 추가
-  return new Date(now.getTime() + 9 * 60 * 60 * 1000)
-}
-
-// 한국 시간 기준 날짜 문자열 (YYYY-MM-DD)
-function getKoreaDateString(date: Date): string {
-  return date.toISOString().split('T')[0]
-}
-
-// 일정 시작 시간을 UTC timestamp로 변환 (한국 시간 기준 입력)
-function getScheduleTimestamp(dateStr: string, timeStr: string): number {
-  // dateStr: "2025-01-23", timeStr: "19:00"
-  // 한국 시간으로 해석하여 UTC timestamp 반환
-  const [year, month, day] = dateStr.split('-').map(Number)
-  const [hours, minutes] = timeStr.split(':').map(Number)
-
-  // UTC 기준으로 Date 생성 후 9시간 빼기 (한국 시간 -> UTC)
-  const utcDate = new Date(Date.UTC(year, month - 1, day, hours - 9, minutes, 0))
-  return utcDate.getTime()
-}
-
 // 매분 실행되어 미리 알림 체크 및 발송
 export const checkScheduleReminders = onSchedule(
   {
@@ -166,22 +187,22 @@ export const checkScheduleReminders = onSchedule(
     const koreaTime = getKoreaTime()
     const nowTimestamp = Date.now()
 
-    console.log(`[리마인더] 체크 시작 - 한국시간: ${koreaTime.toISOString()}`)
+    console.log(`[리마인더] v2 체크 시작 - 한국시간: ${koreaTime.toISOString()}`)
 
-    // 오늘부터 3일간 일정 조회
-    const dates: string[] = []
-    for (let i = 0; i < 3; i++) {
-      const d = new Date(koreaTime)
-      d.setDate(d.getDate() + i)
-      dates.push(getKoreaDateString(d))
-    }
+    // 미리 알림 최대치(MAX_REMINDER_DAYS)만큼 앞을 봐야 한다.
+    // 창이 좁으면 그보다 앞선 알림은 일정이 조회되지도 않아 영영 발송되지 않는다.
+    const from = getKoreaDateString(koreaTime)
+    const until = new Date(koreaTime)
+    until.setUTCDate(until.getUTCDate() + MAX_REMINDER_DAYS)
+    const to = getKoreaDateString(until)
 
-    console.log(`[리마인더] 조회 날짜: ${dates.join(', ')}`)
+    console.log(`[리마인더] 조회 범위: ${from} ~ ${to}`)
 
     try {
       // 해당 기간 일정 조회
       const schedulesSnapshot = await db.collection('schedules')
-        .where('date', 'in', dates)
+        .where('date', '>=', from)
+        .where('date', '<=', to)
         .get()
 
       console.log(`[리마인더] 조회된 일정 수: ${schedulesSnapshot.size}`)
@@ -191,21 +212,20 @@ export const checkScheduleReminders = onSchedule(
         return
       }
 
-      // FCM 토큰이 있는 모든 사용자 조회
-      const usersSnapshot = await db.collection('users').get()
-      const tokens: string[] = []
-      usersSnapshot.forEach((userDoc) => {
-        const userData = userDoc.data()
-        if (userData.fcmToken) {
-          tokens.push(userData.fcmToken)
-        }
-      })
-
-      console.log(`[리마인더] FCM 토큰 수: ${tokens.length}`)
-
-      if (tokens.length === 0) {
-        console.log('[리마인더] 발송할 토큰 없음')
-        return
+      // 토큰 조회는 실제로 발송할 리마인더가 생겼을 때 한 번만 한다
+      // (매분 users 전체를 읽으면 보낼 게 없어도 하루 수만 건의 읽기가 발생한다)
+      let cachedTokens: string[] | null = null
+      const getTokens = async (): Promise<string[]> => {
+        if (cachedTokens) return cachedTokens
+        const usersSnapshot = await db.collection('users').get()
+        const list: string[] = []
+        usersSnapshot.forEach((userDoc) => {
+          const token = userDoc.data().fcmToken
+          if (token) list.push(token)
+        })
+        cachedTokens = list
+        console.log(`[리마인더] FCM 토큰 수: ${list.length}`)
+        return list
       }
 
       // 각 일정의 리마인더 체크
@@ -244,6 +264,12 @@ export const checkScheduleReminders = onSchedule(
           if (diffMinutes >= 0 && diffMinutes < 5) {
             console.log(`[리마인더] ✅ 발송 시작: ${schedule.title} - ${reminder.label}`)
 
+            const tokens = await getTokens()
+            if (tokens.length === 0) {
+              console.log('[리마인더] 발송할 토큰 없음')
+              continue
+            }
+
             const typeLabel = SCHEDULE_TYPE_LABELS[schedule.type] || schedule.type
             const message = {
               notification: {
@@ -280,15 +306,6 @@ export const checkScheduleReminders = onSchedule(
   }
 )
 
-// 현재 연도의 생일 날짜 계산
-function getBirthdayThisYear(birthday: string): string {
-  const koreaTime = getKoreaTime()
-  const currentYear = koreaTime.getFullYear()
-  // birthday: "1990-05-15" -> "2025-05-15"
-  const [, month, day] = birthday.split('-')
-  return `${currentYear}-${month}-${day}`
-}
-
 // 회원가입 시 생일 일정 자동 생성
 export const onUserCreated = onDocumentCreated(
   {
@@ -305,38 +322,74 @@ export const onUserCreated = onDocumentCreated(
     const user = snap.data() as UserDoc
     const userId = event.params.userId
 
-    if (!user.birthday) {
-      console.log(`[생일] ${user.name}님의 생일 정보 없음`)
+    // 이 트리거는 가입자가 직접 만든 문서로 실행된다.
+    // schedules 는 매니저만 쓸 수 있는데 이 함수는 admin 권한이므로, 검증 없이 넘기면
+    // 부원이 전 부원에게 보이는 일정에 임의 문구를 넣는 우회로가 된다.
+    if (!isValidBirthday(user.birthday)) {
+      console.log(`[생일] 생일 형식이 올바르지 않음: ${JSON.stringify(user.birthday)}`)
       return
     }
 
-    console.log(`[생일] ${user.name}님 가입 - 생일: ${user.birthday}`)
+    const safeName = sanitizeName(user.name)
+
+    console.log(`[생일] ${safeName}님 가입 - 생일: ${user.birthday}`)
 
     // 올해 생일 날짜 계산
-    const birthdayThisYear = getBirthdayThisYear(user.birthday)
+    const birthdayThisYear = getNextBirthday(user.birthday)
 
     // 생일 일정 생성
     const birthdaySchedule = {
-      title: `🎂 ${user.name}님의 생일`,
+      title: `🎂 ${safeName}님의 생일`,
       type: 'birthday',
       date: birthdayThisYear,
       startTime: '00:00',
       endTime: '23:59',
       location: '',
-      description: `${user.name}님의 생일을 축하해 주세요!`,
+      description: `${safeName}님의 생일을 축하해 주세요!`,
       userId: userId,
       createdBy: 'system',
       createdAt: new Date().toISOString()
     }
 
     try {
-      await db.collection('schedules').add(birthdaySchedule)
-      console.log(`[생일] ${user.name}님의 생일 일정 생성 완료: ${birthdayThisYear}`)
+      // 문서 ID를 사용자에 고정한다 — 트리거가 중복 전달돼도 생일 일정이 여러 개 생기지 않는다
+      await db.collection('schedules').doc(`birthday_${userId}`).set(birthdaySchedule)
+      console.log(`[생일] ${safeName}님의 생일 일정 생성 완료: ${birthdayThisYear}`)
     } catch (error) {
       console.error(`[생일] 일정 생성 오류:`, error)
     }
   }
 )
+
+// 생일 일정의 date 를 항상 '다음 생일'로 유지한다 (놓친 실행도 다음날 자동 복구)
+async function syncBirthdaySchedules(
+  usersSnapshot: FirebaseFirestore.QuerySnapshot
+): Promise<void> {
+  const schedulesSnapshot = await db.collection('schedules').where('type', '==', 'birthday').get()
+  const byUser = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>()
+  schedulesSnapshot.forEach((doc) => {
+    const uid = doc.data().userId
+    if (uid && !byUser.has(uid)) byUser.set(uid, doc)
+  })
+
+  const batch = db.batch()
+  let changed = 0
+  usersSnapshot.forEach((userDoc) => {
+    const user = userDoc.data() as UserDoc
+    if (!isValidBirthday(user.birthday)) return
+    const scheduleDoc = byUser.get(userDoc.id)
+    if (!scheduleDoc) return
+    const next = getNextBirthday(user.birthday)
+    if (scheduleDoc.data().date === next) return
+    batch.update(scheduleDoc.ref, { date: next, updatedAt: new Date().toISOString() })
+    changed++
+  })
+
+  if (changed > 0) {
+    await batch.commit()
+    console.log(`[생일알림] 생일 일정 ${changed}건 날짜 갱신`)
+  }
+}
 
 // 매일 아침 9시 생일 체크 및 알림 발송
 export const checkBirthdays = onSchedule(
@@ -348,7 +401,6 @@ export const checkBirthdays = onSchedule(
   async () => {
     const koreaTime = getKoreaTime()
     const today = getKoreaDateString(koreaTime)
-    const currentYear = koreaTime.getFullYear()
 
     console.log(`[생일알림] 체크 시작 - 오늘: ${today}`)
 
@@ -367,16 +419,21 @@ export const checkBirthdays = onSchedule(
         }
 
         // 오늘 생일인 사용자 찾기
-        if (user.birthday) {
-          const birthdayThisYear = getBirthdayThisYear(user.birthday)
+        if (isValidBirthday(user.birthday)) {
+          const birthdayThisYear = getNextBirthday(user.birthday)
           if (birthdayThisYear === today) {
-            birthdayUsers.push({ name: user.name, userId: userDoc.id })
+            birthdayUsers.push({ name: sanitizeName(user.name), userId: userDoc.id })
           }
         }
       })
 
       console.log(`[생일알림] 오늘 생일자: ${birthdayUsers.length}명`)
       console.log(`[생일알림] FCM 토큰: ${tokens.length}개`)
+
+      // 생일 일정 날짜를 매일 '다음 생일'로 맞춘다.
+      // 알림 발송과 분리해 두어야 하루 실행을 놓쳐도 다음날 저절로 복구되고,
+      // 생일 당일에는 오늘 날짜가 유지돼 캘린더에서 사라지지 않는다.
+      await syncBirthdaySchedules(usersSnapshot)
 
       if (birthdayUsers.length === 0) {
         console.log('[생일알림] 오늘 생일자 없음')
@@ -408,24 +465,6 @@ export const checkBirthdays = onSchedule(
           const response = await messaging.sendEachForMulticast(message)
           console.log(`[생일알림] ${birthdayUser.name}님 알림: ${response.successCount}개 성공`)
 
-          // 내년 생일 일정 업데이트 (연도 갱신)
-          const schedulesSnapshot = await db.collection('schedules')
-            .where('type', '==', 'birthday')
-            .where('userId', '==', birthdayUser.userId)
-            .get()
-
-          if (!schedulesSnapshot.empty) {
-            const scheduleDoc = schedulesSnapshot.docs[0]
-            const nextYear = currentYear + 1
-            const [, month, day] = scheduleDoc.data().date.split('-')
-            const nextBirthday = `${nextYear}-${month}-${day}`
-
-            await scheduleDoc.ref.update({
-              date: nextBirthday,
-              updatedAt: new Date().toISOString()
-            })
-            console.log(`[생일알림] ${birthdayUser.name}님 내년 생일 일정 업데이트: ${nextBirthday}`)
-          }
         } catch (err) {
           console.error(`[생일알림] 발송 오류:`, err)
         }

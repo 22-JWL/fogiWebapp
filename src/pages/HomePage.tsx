@@ -38,12 +38,26 @@ export default function HomePage() {
     checkNotificationToken()
 
     // 포그라운드 메시지 리스너 설정
+    let unsubscribe: (() => void) | undefined
+    let toastTimer: ReturnType<typeof setTimeout> | undefined
+    let cancelled = false
     setupForegroundMessageListener((payload) => {
       setToast(payload)
-      setTimeout(() => setToast(null), 5000)
+      clearTimeout(toastTimer)
+      toastTimer = setTimeout(() => setToast(null), 5000)
       // 새 알림이 오면 데이터 새로고침
       loadDashboardData()
+    }).then((unsub) => {
+      // 등록이 끝나기 전에 언마운트되면 즉시 해제한다
+      if (cancelled) unsub?.()
+      else unsubscribe = unsub
     })
+
+    return () => {
+      cancelled = true
+      unsubscribe?.()
+      clearTimeout(toastTimer)
+    }
   }, [currentUser])
 
   const checkNotificationToken = async () => {

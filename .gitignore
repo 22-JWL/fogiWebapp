@@ -23,6 +23,12 @@ firebase-debug.*.log
 firestore-debug.log
 ui-debug.log
 
+# Cloud Functions 빌드 결과물 (배포 시 predeploy 로 다시 생성됨)
+functions/lib
+
+# Claude Code 로컬 설정 (개인 설정이라 공유하지 않음)
+.claude/settings.local.json
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

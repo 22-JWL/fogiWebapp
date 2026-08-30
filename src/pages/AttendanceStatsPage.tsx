@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { collection, getDocs, query, orderBy } from 'firebase/firestore'
+import { collection, getDocs, query, orderBy, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, Attendance, PART_LABELS, User } from '../types'
@@ -47,6 +47,12 @@ export default function AttendanceStatsPage() {
     loadStats()
   }, [currentUser])
 
+  // 전체 통계는 매니저가 실제로 탭을 열었을 때 한 번만 읽는다
+  useEffect(() => {
+    if (viewMode !== 'all' || currentUser?.role !== 'manager' || allStats.length > 0) return
+    loadAllStats()
+  }, [viewMode, currentUser])
+
   const loadStats = async () => {
     if (!currentUser) return
     setIsLoading(true)
@@ -61,15 +67,15 @@ export default function AttendanceStatsPage() {
         schedules.push({ id: doc.id, ...doc.data() } as Schedule)
       })
 
-      // 모든 출석 데이터 가져오기
-      const attendancesSnap = await getDocs(collection(db, 'attendances'))
-      const attendances: Attendance[] = []
-      attendancesSnap.forEach((doc) => {
-        attendances.push({ id: doc.id, ...doc.data() } as Attendance)
-      })
+      // 내 출석 기록만 가져온다 (전체를 읽고 버리면 부원 수 x 일정 수만큼 읽기 비용이 든다)
+      const myAttendancesSnap = await getDocs(
+        query(collection(db, 'attendances'), where('userId', '==', currentUser.id))
+      )
+      const myAttendances: Attendance[] = myAttendancesSnap.docs.map(
+        (doc) => ({ id: doc.id, ...doc.data() } as Attendance)
+      )
 
       // 내 통계 계산
-      const myAttendances = attendances.filter((a) => a.userId === currentUser.id)
       const myStatsData: UserStats = {
         userId: currentUser.id,
         userName: currentUser.name,
@@ -118,41 +124,45 @@ export default function AttendanceStatsPage() {
 
       setMonthlyStats(Object.values(monthlyData).reverse())
 
-      // 전체 사용자 통계 (매니저만)
-      if (currentUser.role === 'manager') {
-        // 매니저만 모든 사용자 정보를 가져올 수 있음
-        const usersSnap = await getDocs(collection(db, 'users'))
-        const users: User[] = []
-        usersSnap.forEach((doc) => {
-          users.push({ id: doc.id, ...doc.data() } as User)
-        })
-
-        const allStatsData: UserStats[] = users.map((user) => {
-          const userAttendances = attendances.filter((a) => a.userId === user.id)
-          const stats: UserStats = {
-            userId: user.id,
-            userName: user.name,
-            userPart: PART_LABELS[user.part],
-            attending: userAttendances.filter((a) => a.status === 'attending').length,
-            late: userAttendances.filter((a) => a.status === 'late').length,
-            absent: userAttendances.filter((a) => a.status === 'absent').length,
-            total: userAttendances.length,
-            rate: 0
-          }
-          stats.rate = stats.total > 0
-            ? Math.round(((stats.attending + stats.late) / stats.total) * 100)
-            : 0
-          return stats
-        })
-
-        // 출석률 높은 순으로 정렬
-        allStatsData.sort((a, b) => b.rate - a.rate)
-        setAllStats(allStatsData)
-      }
     } catch (error) {
       console.error('통계 로드 실패:', error)
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const loadAllStats = async () => {
+    if (!currentUser) return
+    try {
+      const [usersSnap, attendancesSnap] = await Promise.all([
+        getDocs(collection(db, 'users')),
+        getDocs(collection(db, 'attendances'))
+      ])
+      const attendances = attendancesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Attendance))
+
+      const allStatsData: UserStats[] = usersSnap.docs.map((d) => {
+        const user = { id: d.id, ...d.data() } as User
+        const userAttendances = attendances.filter((a) => a.userId === user.id)
+        const attending = userAttendances.filter((a) => a.status === 'attending').length
+        const late = userAttendances.filter((a) => a.status === 'late').length
+        const absent = userAttendances.filter((a) => a.status === 'absent').length
+        const total = userAttendances.length
+        return {
+          userId: user.id,
+          userName: user.name,
+          userPart: PART_LABELS[user.part],
+          attending,
+          late,
+          absent,
+          total,
+          rate: total > 0 ? Math.round(((attending + late) / total) * 100) : 0
+        }
+      })
+
+      allStatsData.sort((a, b) => b.rate - a.rate)
+      setAllStats(allStatsData)
+    } catch (error) {
+      console.error('전체 통계 로드 실패:', error)
     }
   }
 

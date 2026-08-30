@@ -187,9 +187,10 @@ export async function setupForegroundMessageListener(
   onMessageReceived: (payload: { title: string; body: string }) => void
 ) {
   const messaging = await getMessagingInstance()
-  if (!messaging) return
+  if (!messaging) return () => {}
 
-  onMessage(messaging, (payload) => {
+  // 해제 함수를 돌려줘야 언마운트 때 정리할 수 있다 (안 하면 탭 이동마다 리스너가 쌓인다)
+  return onMessage(messaging, (payload) => {
     console.log('포그라운드 메시지 수신:', payload)
 
     const title = payload.notification?.title || '새 알림'

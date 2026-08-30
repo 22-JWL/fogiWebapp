@@ -34,6 +34,12 @@ export default function ScheduleManagePage() {
   const [reminderUnit, setReminderUnit] = useState<'minutes' | 'hours' | 'days'>('hours')
   const [submitting, setSubmitting] = useState(false)
 
+
+  useEffect(() => {
+    if (currentUser?.role !== 'manager') return // 가드가 훅 뒤로 내려갔으므로 여기서 막는다
+    fetchSchedules()
+  }, [selectedMonth])
+
   // 매니저가 아니면 접근 불가
   if (!currentUser || currentUser.role !== 'manager') {
     return (
@@ -46,10 +52,6 @@ export default function ScheduleManagePage() {
       </div>
     )
   }
-
-  useEffect(() => {
-    fetchSchedules()
-  }, [selectedMonth])
 
   const fetchSchedules = async () => {
     setLoading(true)
@@ -173,8 +175,12 @@ export default function ScheduleManagePage() {
       }
 
       if (editingSchedule) {
+        // 날짜·시간이 바뀌면 이전 발송 기록을 지운다 (안 지우면 변경된 일정의 미리 알림이 영영 안 나간다)
+        const timeChanged =
+          editingSchedule.date !== date || editingSchedule.startTime !== startTime
         await updateDoc(doc(db, 'schedules', editingSchedule.id), {
           ...scheduleData,
+          ...(timeChanged ? { sentReminders: [] } : {}),
           updatedAt: new Date().toISOString()
         })
         await sendNotification(`${SCHEDULE_TYPE_LABELS[type]}: ${title} (${date})`, true)
@@ -367,7 +373,7 @@ export default function ScheduleManagePage() {
                       </div>
                       <h3 className="schedule-title">{schedule.title}</h3>
                       <p className="schedule-location">{schedule.location}</p>
-                      {schedule.referenceLink && (
+                      {/^https?:\/\//i.test(schedule.referenceLink ?? '') && (
                         <a
                           href={schedule.referenceLink}
                           target="_blank"
@@ -501,7 +507,7 @@ export default function ScheduleManagePage() {
                 <input
                   type="number"
                   min="1"
-                  max="99"
+                  max={reminderUnit === 'days' ? 30 : 99}  /* 백엔드 조회 창(MAX_REMINDER_DAYS)과 일치 */
                   value={reminderValue}
                   onChange={(e) => setReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
                   className="reminder-value-input"

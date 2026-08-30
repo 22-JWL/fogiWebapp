@@ -1,10 +1,16 @@
 /// <reference lib="webworker" />
 import { precacheAndRoute } from 'workbox-precaching'
+import { clientsClaim } from 'workbox-core'
 
 declare const self: ServiceWorkerGlobalScope & typeof globalThis
 
 // Workbox precache
 precacheAndRoute(self.__WB_MANIFEST)
+
+// registerType:'autoUpdate' 는 새 SW가 즉시 활성화될 때만 동작한다.
+// 이 두 줄이 없으면 새 버전이 waiting 에 머물러 사용자가 구버전에 갇힌다.
+self.skipWaiting()
+clientsClaim()
 
 // Firebase 설정 (빌드 시 환경변수가 주입됨)
 const firebaseConfig = {

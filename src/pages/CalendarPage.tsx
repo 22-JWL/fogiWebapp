@@ -271,7 +271,7 @@ export default function CalendarPage() {
                     <div className="schedule-meta">
                       <span className="schedule-location">{schedule.location}</span>
                     </div>
-                    {schedule.referenceLink && (
+                    {/^https?:\/\//i.test(schedule.referenceLink ?? '') && (
                       <a
                         href={schedule.referenceLink}
                         target="_blank"

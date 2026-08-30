@@ -21,6 +21,26 @@ export default function AttendanceManagePage() {
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
   })
 
+
+  useEffect(() => {
+    if (currentUser?.role !== 'manager') return // 가드가 훅 뒤로 내려갔으므로 여기서 막는다
+    fetchMembers()
+  }, [])
+
+  useEffect(() => {
+    if (currentUser?.role !== 'manager') return // 가드가 훅 뒤로 내려갔으므로 여기서 막는다
+    fetchSchedules()
+  }, [selectedMonth])
+
+  useEffect(() => {
+    if (currentUser?.role !== 'manager') return // 가드가 훅 뒤로 내려갔으므로 여기서 막는다
+    if (selectedSchedule) {
+      fetchAttendance(selectedSchedule.id)
+    } else {
+      setAttendanceMap({})
+    }
+  }, [selectedSchedule])
+
   // 매니저가 아니면 접근 불가
   if (!currentUser || currentUser.role !== 'manager') {
     return (
@@ -33,22 +53,6 @@ export default function AttendanceManagePage() {
       </div>
     )
   }
-
-  useEffect(() => {
-    fetchMembers()
-  }, [])
-
-  useEffect(() => {
-    fetchSchedules()
-  }, [selectedMonth])
-
-  useEffect(() => {
-    if (selectedSchedule) {
-      fetchAttendance(selectedSchedule.id)
-    } else {
-      setAttendanceMap({})
-    }
-  }, [selectedSchedule])
 
   const fetchSchedules = async () => {
     // 선택된 월의 일정만 조회 (Firestore에서 필터링)

@@ -34,6 +34,7 @@ await testEnv.withSecurityRulesDisabled(async ctx => {
   await setDoc(doc(db, 'rsvps', `sch1_${A}`), { scheduleId: 'sch1', userId: A, status: 'attending' })
   await setDoc(doc(db, 'rsvps', `sch1_${B}`), { scheduleId: 'sch1', userId: B, status: 'absent' })
   await setDoc(doc(db, 'attendances', `sch1_${A}`), { scheduleId: 'sch1', userId: A, status: 'attending' })
+  await setDoc(doc(db, 'notifications', 'n1'), { title: '공지', body: 'x', tokens: ['TOK_A', 'TOK_B'] })
 })
 
 const alice = testEnv.authenticatedContext(A).firestore()
@@ -81,6 +82,30 @@ await check('신규 가입 본인 문서 생성 → 허용', async () => {
   const fresh = testEnv.authenticatedContext(newUid).firestore()
   await assertSucceeds(setDoc(doc(fresh, 'users', newUid), { name: '신입', email: 'n@t.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
 })
+
+// 권한 상승 / 위조 차단 (감사 확정 사항)
+await check('신규 계정이 role:manager 로 가입 → 차단', async () => {
+  const atk = testEnv.authenticatedContext('attackerUid').firestore()
+  await assertFails(setDoc(doc(atk, 'users', 'attackerUid'),
+    { name: 'x', email: 'x@x.com', role: 'manager', part: 'vocal', birthday: '2000-01-01', createdAt: 'x' }))
+})
+await check('신규 계정이 role:member 로 가입 → 허용', async () => {
+  const ok = testEnv.authenticatedContext('newbieUid').firestore()
+  await assertSucceeds(setDoc(doc(ok, 'users', 'newbieUid'),
+    { name: '신입', email: 'n@x.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
+})
+await check('부원이 임의 접두사 rsvp 위조 → 차단', () => assertFails(setDoc(doc(alice, 'rsvps', `zz1_${A}`),
+  { scheduleId: 'sch1', userId: B, status: 'absent', updatedAt: 'x' })))
+await check('부원이 본인 rsvp 에 남의 userId → 차단', () => assertFails(setDoc(doc(alice, 'rsvps', `sch1_${A}`),
+  { scheduleId: 'sch1', userId: B, status: 'absent', updatedAt: 'x' })))
+await check('부원이 이상한 status 로 rsvp → 차단', () => assertFails(setDoc(doc(alice, 'rsvps', `sch1_${A}`),
+  { scheduleId: 'sch1', userId: A, status: 'hacked', updatedAt: 'x' })))
+await check('부원이 정상 rsvp 작성 → 허용', () => assertSucceeds(setDoc(doc(alice, 'rsvps', `sch1_${A}`),
+  { scheduleId: 'sch1', userId: A, status: 'attending', updatedAt: 'x' })))
+await check('부원이 자기 rsvp 수정 → 허용', () => assertSucceeds(setDoc(doc(alice, 'rsvps', `sch1_${A}`),
+  { scheduleId: 'sch1', userId: A, status: 'late', updatedAt: 'y' })))
+await check('부원이 notifications 열람 → 차단', () => assertFails(getDocs(collection(alice, 'notifications'))))
+await check('매니저가 notifications 열람 → 허용', () => assertSucceeds(getDocs(collection(mgr, 'notifications'))))
 
 // 일정 삭제 시 딸린 기록 정리 (매니저가 일괄 삭제한다)
 await check('매니저가 남의 rsvp 삭제 → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'rsvps', `sch1_${A}`))))

@@ -42,17 +42,21 @@ export function AuthProvider({ children }: AuthProviderProps) {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user)
 
-      if (user) {
-        // Firestore에서 사용자 정보 가져오기
-        const userDoc = await getDoc(doc(db, 'users', user.uid))
-        if (userDoc.exists()) {
-          setCurrentUser({ id: user.uid, ...userDoc.data() } as User)
+      // 오프라인·규칙 오류로 getDoc이 실패해도 로딩은 반드시 끝내야 한다
+      // (안 그러면 PWA가 '로딩 중...' 스피너에서 영구 정지한다)
+      try {
+        if (user) {
+          const userDoc = await getDoc(doc(db, 'users', user.uid))
+          setCurrentUser(userDoc.exists() ? ({ id: user.uid, ...userDoc.data() } as User) : null)
+        } else {
+          setCurrentUser(null)
         }
-      } else {
+      } catch (error) {
+        console.error('사용자 정보 로드 실패:', error)
         setCurrentUser(null)
+      } finally {
+        setLoading(false)
       }
-
-      setLoading(false)
     })
 
     return unsubscribe
