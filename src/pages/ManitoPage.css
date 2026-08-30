@@ -1,0 +1,173 @@
+.manito-page {
+  min-height: 100vh;
+}
+
+.manito-header {
+  padding: 16px 20px;
+  background-color: var(--bg-card);
+  border-bottom: 1px solid #333;
+}
+
+.manito-header h1 {
+  font-size: 1.2rem;
+}
+
+.manito-content {
+  padding: 20px;
+  max-width: 600px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.manito-page .month-selector {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  margin-bottom: 20px;
+}
+
+.manito-page .month-btn {
+  background-color: var(--bg-card);
+  color: var(--text-primary);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-size: 18px;
+  padding: 0;
+}
+
+.manito-page .month-display {
+  font-size: 1.2rem;
+  font-weight: 600;
+}
+
+.manito-card {
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  padding: 32px 20px;
+  text-align: center;
+}
+
+.manito-caption {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.gift {
+  width: 120px;
+  height: 120px;
+  margin: 0 auto 20px;
+}
+
+.gift svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.gift-body { fill: var(--primary-color); }
+.gift-top { fill: #8b7dee; }
+.gift-ribbon,
+.gift-bow { fill: var(--warning); }
+
+.gift-lid,
+.gift-base {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+
+/* 흔들다가(0~55%) 뚜껑이 날아가고 사라진다 — 끝나면 onAnimationEnd로 대상이 공개된다 */
+.gift.opening { animation: gift-shake 1.05s ease-in-out forwards; }
+.gift.opening .gift-lid { animation: gift-lid 1.05s ease-out forwards; }
+.gift.opening .gift-base { animation: gift-base 1.05s ease-in-out forwards; }
+
+@keyframes gift-shake {
+  0%   { transform: rotate(0deg); opacity: 1; }
+  8%   { transform: rotate(-11deg); }
+  17%  { transform: rotate(11deg); }
+  26%  { transform: rotate(-10deg); }
+  35%  { transform: rotate(10deg); }
+  44%  { transform: rotate(-7deg); }
+  52%  { transform: rotate(7deg); }
+  58%  { transform: rotate(0deg); opacity: 1; }
+  85%  { transform: rotate(0deg); opacity: 1; }
+  100% { transform: rotate(0deg); opacity: 0; }
+}
+
+@keyframes gift-lid {
+  0%, 58% { transform: translate(0, 0) rotate(0deg); opacity: 1; }
+  72%     { transform: translate(8px, -28px) rotate(-18deg); opacity: 0.85; }
+  86%     { transform: translate(24px, -46px) rotate(-32deg); opacity: 0.25; }
+  100%    { transform: translate(40px, -62px) rotate(-46deg); opacity: 0; }
+}
+
+@keyframes gift-base {
+  0%, 58% { transform: scaleY(1) translateY(0); }
+  70%     { transform: scaleY(0.9) translateY(4px); }
+  82%     { transform: scaleY(1.04) translateY(-2px); }
+  100%    { transform: scaleY(1) translateY(0); }
+}
+
+@keyframes manito-pop {
+  0%   { transform: scale(0.6); opacity: 0; }
+  60%  { transform: scale(1.08); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+.manito-name {
+  animation: manito-pop 0.4s ease-out;
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--primary-color);
+  margin-bottom: 4px;
+}
+
+.manito-part {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.manito-hide-btn {
+  border: 1px solid #333;
+  color: var(--text-secondary);
+}
+
+.manito-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 16px;
+}
+
+.manito-page .empty-text,
+.manito-page .loading-text {
+  text-align: center;
+  color: var(--text-secondary);
+  padding: 40px 20px;
+  background-color: var(--bg-card);
+  border-radius: 12px;
+  font-size: 14px;
+}
+
+.manito-meta {
+  text-align: center;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 16px;
+}
+
+/* 모션 최소화 설정: 애니메이션은 거의 즉시 끝내되 0으로 두지 않는다
+   (0이면 animationend가 안 떠서 공개 자체가 막힌다) */
+@media (prefers-reduced-motion: reduce) {
+  .gift.opening,
+  .gift.opening .gift-lid,
+  .gift.opening .gift-base {
+    animation-duration: 0.01s;
+  }
+
+  .manito-name {
+    animation: none;
+  }
+}

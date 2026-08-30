@@ -95,3 +95,19 @@ export interface Attendance {
   note?: string
   updatedAt: string
 }
+
+// 마니또 설정 (문서 ID = YYYY-MM)
+export interface ManitoConfig {
+  month: string // YYYY-MM
+  participantIds: string[]
+  drawnAt?: string // 추첨 실행 시각 (없으면 아직 추첨 전)
+  updatedAt: string
+}
+
+// 마니또 배정 (문서 ID = `${month}_${userId}`, 본인과 매니저만 읽기 가능)
+export interface ManitoAssignment {
+  month: string
+  userId: string   // 마니또를 해주는 사람
+  targetId: string // 배정된 대상
+  createdAt: string
+}

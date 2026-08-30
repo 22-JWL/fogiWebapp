@@ -25,9 +25,10 @@ service cloud.firestore {
       // 생성: 인증된 사용자가 본인 문서 생성
       allow create: if isOwner(userId);
 
-      // 수정: 본인이 fcmToken, name 등 수정 가능
+      // 수정: 본인이 fcmToken, name 등 수정 가능 (단 role은 제외 — 스스로 매니저가 될 수 없다)
       // 역할(role) 변경은 매니저만 가능
-      allow update: if isOwner(userId) ||
+      allow update: if (isOwner(userId) &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
         (isManager() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']));
 
       // 삭제: 매니저만
@@ -62,6 +63,19 @@ service cloud.firestore {
 
       // 생성/수정/삭제: 매니저만
       allow create, update, delete: if isManager();
+    }
+
+    // 마니또 컬렉션
+    // manito/{YYYY-MM}          = 설정 문서 (참가자 명단, 전원 읽기 가능)
+    // manito/{YYYY-MM}_{userId} = 배정 문서 (본인과 매니저만 읽기 가능)
+    match /manito/{docId} {
+      // 읽기: 매니저는 전부, 부원은 설정 문서와 본인 배정 문서만
+      allow read: if isManager() ||
+        (isAuthenticated() &&
+          (docId.split('_').size() == 1 || docId.split('_')[1] == request.auth.uid));
+
+      // 생성/수정/삭제: 매니저만
+      allow write: if isManager();
     }
 
     // RSVP 컬렉션 (부원이 직접 입력하는 참석 예정)

@@ -10,6 +10,8 @@ import SendNotificationPage from './pages/SendNotificationPage'
 import ScheduleManagePage from './pages/ScheduleManagePage'
 import AttendanceManagePage from './pages/AttendanceManagePage'
 import RsvpManagePage from './pages/RsvpManagePage'
+import ManitoPage from './pages/ManitoPage'
+import ManitoManagePage from './pages/ManitoManagePage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { currentUser, loading } = useAuth()
@@ -65,6 +67,7 @@ function AppRoutes() {
         <Route path="/" element={<HomePage />} />
         <Route path="/calendar" element={<CalendarPage />} />
         <Route path="/stats" element={<AttendanceStatsPage />} />
+        <Route path="/manito" element={<ManitoPage />} />
         <Route path="/mypage" element={<MyPage />} />
       </Route>
 
@@ -98,6 +101,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <RsvpManagePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/manito-manage"
+        element={
+          <PrivateRoute>
+            <ManitoManagePage />
           </PrivateRoute>
         }
       />

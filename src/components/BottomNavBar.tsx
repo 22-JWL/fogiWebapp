@@ -11,6 +11,7 @@ const navItems: NavItem[] = [
   { path: '/', label: '홈', icon: 'home' },
   { path: '/calendar', label: '일정/출석', icon: 'calendar' },
   { path: '/stats', label: '출석통계', icon: 'stats' },
+  { path: '/manito', label: '마니또', icon: 'gift' },
   { path: '/mypage', label: '마이페이지', icon: 'user' }
 ]
 

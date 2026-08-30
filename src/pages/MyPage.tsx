@@ -176,6 +176,11 @@ export default function MyPage() {
               <span className="menu-text">참석 예정 확인</span>
               <span className="menu-arrow">›</span>
             </a>
+            <a href="/manito-manage" className="menu-link">
+              <span className="menu-icon">🎁</span>
+              <span className="menu-text">마니또 관리</span>
+              <span className="menu-arrow">›</span>
+            </a>
           </section>
         )}
 
