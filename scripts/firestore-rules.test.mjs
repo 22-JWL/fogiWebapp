@@ -30,6 +30,10 @@ await testEnv.withSecurityRulesDisabled(async ctx => {
   await setDoc(doc(db, 'manito', `${MONTH}_${A}`), { month: MONTH, userId: A, targetId: B, createdAt: 'now' })
   await setDoc(doc(db, 'manito', `${MONTH}_${B}`), { month: MONTH, userId: B, targetId: MGR, createdAt: 'now' })
   await setDoc(doc(db, 'manito', `${MONTH}_${MGR}`), { month: MONTH, userId: MGR, targetId: A, createdAt: 'now' })
+  await setDoc(doc(db, 'schedules', 'sch1'), { title: '연습', date: '2026-08-10', startTime: '19:00' })
+  await setDoc(doc(db, 'rsvps', `sch1_${A}`), { scheduleId: 'sch1', userId: A, status: 'attending' })
+  await setDoc(doc(db, 'rsvps', `sch1_${B}`), { scheduleId: 'sch1', userId: B, status: 'absent' })
+  await setDoc(doc(db, 'attendances', `sch1_${A}`), { scheduleId: 'sch1', userId: A, status: 'attending' })
 })
 
 const alice = testEnv.authenticatedContext(A).firestore()
@@ -77,6 +81,16 @@ await check('신규 가입 본인 문서 생성 → 허용', async () => {
   const fresh = testEnv.authenticatedContext(newUid).firestore()
   await assertSucceeds(setDoc(doc(fresh, 'users', newUid), { name: '신입', email: 'n@t.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
 })
+
+// 일정 삭제 시 딸린 기록 정리 (매니저가 일괄 삭제한다)
+await check('매니저가 남의 rsvp 삭제 → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'rsvps', `sch1_${A}`))))
+await check('매니저가 출석 기록 삭제 → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'attendances', `sch1_${A}`))))
+await check('매니저가 일정 삭제 → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'schedules', 'sch1'))))
+await check('부원이 남의 rsvp 삭제 → 여전히 차단', () => assertFails(deleteDoc(doc(alice, 'rsvps', `sch1_${B}`))))
+await check('부원이 출석 기록 삭제 → 여전히 차단', () => assertFails(deleteDoc(doc(alice, 'attendances', `sch1_${B}`))))
+await check('부원이 일정 삭제 → 여전히 차단', () => assertFails(deleteDoc(doc(alice, 'schedules', 'sch1'))))
+await check('부원이 scheduleId로 rsvps 조회 → 허용 (일정 삭제 로직이 쓰는 쿼리)', () =>
+  assertSucceeds(getDocs(query(collection(alice, 'rsvps'), where('scheduleId', '==', 'sch1')))))
 
 // 비로그인 전면 차단
 await check('비로그인 설정 문서 읽기 → 차단', () => assertFails(getDoc(doc(anon, 'manito', MONTH))))

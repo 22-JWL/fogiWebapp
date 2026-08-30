@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, query, orderBy, where } from 'firebase/firestore'
+import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy, where, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
@@ -197,10 +197,21 @@ export default function ScheduleManagePage() {
   }
 
   const handleDelete = async (schedule: Schedule) => {
-    if (!confirm(`"${schedule.title}" 일정을 삭제하시겠습니까?`)) return
+    if (!confirm(`"${schedule.title}" 일정을 삭제하시겠습니까?\n출석 기록과 참석 예정 응답도 함께 삭제됩니다.`)) return
 
     try {
-      await deleteDoc(doc(db, 'schedules', schedule.id))
+      // 일정만 지우면 출석/참석예정 문서가 고아로 남아 통계에 유령 기록으로 잡힌다
+      const [attendances, rsvps] = await Promise.all([
+        getDocs(query(collection(db, 'attendances'), where('scheduleId', '==', schedule.id))),
+        getDocs(query(collection(db, 'rsvps'), where('scheduleId', '==', schedule.id)))
+      ])
+
+      const batch = writeBatch(db)
+      attendances.forEach((d) => batch.delete(d.ref))
+      rsvps.forEach((d) => batch.delete(d.ref))
+      batch.delete(doc(db, 'schedules', schedule.id))
+      await batch.commit()
+
       fetchSchedules()
     } catch (error) {
       console.error('일정 삭제 오류:', error)

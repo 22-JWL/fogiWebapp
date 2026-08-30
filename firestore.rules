@@ -87,9 +87,9 @@ service cloud.firestore {
       allow create, update: if isAuthenticated() &&
         rsvpId.split('_')[1] == request.auth.uid;
 
-      // 삭제: 본인만
-      allow delete: if isAuthenticated() &&
-        rsvpId.split('_')[1] == request.auth.uid;
+      // 삭제: 본인, 그리고 매니저(일정 삭제 시 딸린 응답을 함께 정리한다)
+      allow delete: if isManager() ||
+        (isAuthenticated() && rsvpId.split('_')[1] == request.auth.uid);
     }
   }
 }

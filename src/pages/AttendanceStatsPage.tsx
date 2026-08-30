@@ -3,6 +3,16 @@ import { collection, getDocs, query, orderBy } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, Attendance, PART_LABELS, User } from '../types'
+import {
+  BADGES,
+  BADGE_GROUP_LABELS,
+  BadgeGroup,
+  BadgeStats,
+  badgeProgress,
+  badgeProgressText,
+  computeBadgeStats,
+  earnedCount
+} from '../badges'
 import './AttendanceStatsPage.css'
 
 interface UserStats {
@@ -28,6 +38,7 @@ export default function AttendanceStatsPage() {
   const [myStats, setMyStats] = useState<UserStats | null>(null)
   const [allStats, setAllStats] = useState<UserStats[]>([])
   const [monthlyStats, setMonthlyStats] = useState<MonthlyStats[]>([])
+  const [badgeStats, setBadgeStats] = useState<BadgeStats | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [viewMode, setViewMode] = useState<'my' | 'all'>('my')
 
@@ -73,6 +84,16 @@ export default function AttendanceStatsPage() {
         ? Math.round(((myStatsData.attending + myStatsData.late) / myStatsData.total) * 100)
         : 0
       setMyStats(myStatsData)
+
+      // 배지 계산 — 일정 날짜순 연속 참석이 필요해 일정 시간과 묶는다
+      const scheduleKey = new Map(schedules.map((s) => [s.id, `${s.date} ${s.startTime ?? ''}`]))
+      // 삭제된 일정의 기록은 날짜를 모르지만 버리면 안 된다 — 버리면 불참이 사라져 참석률이 부풀고
+      // 상단 통계와도 어긋난다. 빈 sortKey로 맨 앞에 두고 집계에는 그대로 포함한다.
+      const badgeRecords = myAttendances.map((a) => ({
+        sortKey: scheduleKey.get(a.scheduleId) ?? '',
+        status: a.status
+      }))
+      setBadgeStats(computeBadgeStats(badgeRecords))
 
       // 월별 통계 계산 (최근 6개월)
       const monthlyData: { [key: string]: MonthlyStats } = {}
@@ -173,6 +194,49 @@ export default function AttendanceStatsPage() {
 
       {viewMode === 'my' && myStats && (
         <div className="stats-content">
+          {badgeStats && (
+            <section className="badges-section card">
+              <div className="badges-head">
+                <h2>배지</h2>
+                <span className="badges-count">{earnedCount(badgeStats)} / {BADGES.length}</span>
+              </div>
+
+              <div className="streak-banner">
+                <span className="streak-icon">🔥</span>
+                <span className="streak-value">{badgeStats.currentStreak}</span>
+                <span className="streak-unit">연속 참석 중</span>
+                <span className="streak-best">최고 {badgeStats.bestStreak}연속</span>
+              </div>
+
+              {(Object.keys(BADGE_GROUP_LABELS) as BadgeGroup[]).map((group) => (
+                <div key={group} className="badge-group">
+                  <h3>{BADGE_GROUP_LABELS[group]}</h3>
+                  <div className="badge-grid">
+                    {BADGES.filter((b) => b.group === group).map((badge) => {
+                      const progress = badgeProgress(badge, badgeStats)
+                      return (
+                        <div
+                          key={badge.id}
+                          className={`badge ${progress.earned ? 'earned' : 'locked'}`}
+                          title={badge.desc}
+                        >
+                          <span className="badge-icon">{badge.icon}</span>
+                          <span className="badge-name">{badge.name}</span>
+                          <span className="badge-progress">{badgeProgressText(badge, badgeStats)}</span>
+                        </div>
+                      )
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              <p className="badges-note">
+                배지는 '참석'만 인정 &middot; 참석 {badgeStats.attended}회 / 기록 {badgeStats.total}회
+                &middot; 참석률 {badgeStats.rate}%(버림)
+              </p>
+            </section>
+          )}
+
           <section className="stats-summary card">
             <h2>내 출석 현황</h2>
             <div className="rate-circle">
