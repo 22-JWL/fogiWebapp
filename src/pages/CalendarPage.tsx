@@ -3,6 +3,7 @@ import { collection, getDocs, query, orderBy, doc, setDoc, getDoc, where } from 
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, AttendanceStatus, SCHEDULE_TYPE_LABELS, ATTENDANCE_STATUS_LABELS, User } from '../types'
+import { pickInitialDate } from '../schedulePick'
 import './CalendarPage.css'
 
 export default function CalendarPage() {
@@ -22,12 +23,19 @@ export default function CalendarPage() {
   })
 
   useEffect(() => {
-    if (currentUser) {
-      fetchData()
+    if (!currentUser) return
+    // 월을 빠르게 넘기면 이전 달 응답이 늦게 도착해 현재 달 화면을 덮어쓴다
+    let cancelled = false
+    fetchData(() => cancelled).catch((e) => {
+      console.error('일정 로드 실패:', e)
+      if (!cancelled) setLoading(false)
+    })
+    return () => {
+      cancelled = true
     }
   }, [currentUser, selectedMonth])
 
-  const fetchData = async () => {
+  const fetchData = async (isCancelled: () => boolean = () => false) => {
     setLoading(true)
 
     // 전체 사용자 조회
@@ -52,7 +60,13 @@ export default function CalendarPage() {
     )
     const snapshot = await getDocs(q)
     const filtered = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Schedule))
+    if (isCancelled()) return
     setSchedules(filtered)
+
+    // 그 달에 공연·연습이 있으면 그 날짜를 먼저 펼쳐 준다
+    const now = new Date()
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    setSelectedDate(pickInitialDate(filtered, selectedMonth, todayStr))
 
     // 내 RSVP 상태 조회 + 일정별 RSVP 상세 정보
     if (currentUser) {
@@ -90,10 +104,12 @@ export default function CalendarPage() {
         detailsMap[schedule.id] = { attending, late, absent }
       }
 
+      if (isCancelled()) return
       setAttendances(attendanceMap)
       setRsvpDetails(detailsMap)
     }
 
+    if (isCancelled()) return
     setLoading(false)
   }
 
@@ -138,6 +154,7 @@ export default function CalendarPage() {
     const newDate = new Date(year, month - 1 + delta, 1)
     const newMonth = `${newDate.getFullYear()}-${String(newDate.getMonth() + 1).padStart(2, '0')}`
     setSelectedMonth(newMonth)
+    // 로드가 끝나면 pickInitialDate 가 다시 정한다. 그전까지 이전 달 날짜가 헤더에 남지 않도록 초기화.
     setSelectedDate(`${newMonth}-01`)
   }
 
