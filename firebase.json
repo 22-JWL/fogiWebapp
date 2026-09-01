@@ -42,7 +42,7 @@
         ]
       },
       {
-        "source": "/@(index.html|sw.js|firebase-messaging-sw.js|manifest.webmanifest|registerSW.js)",
+        "source": "/@(|index.html|sw.js|firebase-messaging-sw.js|manifest.webmanifest|registerSW.js)",
         "headers": [
           {
             "key": "Cache-Control",
