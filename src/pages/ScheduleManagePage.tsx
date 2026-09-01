@@ -3,6 +3,7 @@ import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy, where, wri
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
+import { presetFor, applyTypeChange } from '../schedulePresets'
 import './ScheduleManagePage.css'
 
 export default function ScheduleManagePage() {
@@ -71,12 +72,14 @@ export default function ScheduleManagePage() {
   }
 
   const resetForm = () => {
-    setTitle('')
+    // 기본 선택이 '연습' 이므로 연습 기본값으로 폼을 연다
+    const preset = presetFor('practice')
+    setTitle(preset.title)
     setType('practice')
     setDate('')
-    setStartTime('19:00')
-    setEndTime('21:00')
-    setLocation('')
+    setStartTime(preset.startTime)
+    setEndTime(preset.endTime)
+    setLocation(preset.location)
     setDescription('')
     setReferenceLink('')
     setReminders([])
@@ -84,6 +87,16 @@ export default function ScheduleManagePage() {
     setReminderUnit('hours')
     setEditingSchedule(null)
     setShowForm(false)
+  }
+
+  // 유형을 바꾸면 그 유형의 기본값으로 채운다. 직접 고친 칸은 그대로 둔다.
+  const changeType = (next: ScheduleType) => {
+    const values = applyTypeChange(type, next, { title, startTime, endTime, location })
+    setTitle(values.title)
+    setStartTime(values.startTime)
+    setEndTime(values.endTime)
+    setLocation(values.location)
+    setType(next)
   }
 
   const openNewForm = (selectedDate: string) => {
@@ -413,7 +426,7 @@ export default function ScheduleManagePage() {
                       name="type"
                       value={key}
                       checked={type === key}
-                      onChange={() => setType(key as ScheduleType)}
+                      onChange={() => changeType(key as ScheduleType)}
                     />
                     <span>{label}</span>
                   </label>
