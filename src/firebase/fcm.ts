@@ -1,5 +1,5 @@
 import { getToken, onMessage } from 'firebase/messaging'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { doc, setDoc, getDoc, updateDoc, arrayUnion, arrayRemove, deleteField } from 'firebase/firestore'
 import { db, getMessagingInstance } from './config'
 
 const VAPID_KEY = import.meta.env.VITE_FIREBASE_VAPID_KEY
@@ -40,7 +40,8 @@ export function checkIOSPushSupport(): { supported: boolean; reason?: string } {
     return { supported: true }
   }
 
-  if (iosVersion < 16.4) {
+  // iosVersion 0 = 버전을 알 수 없음 (iPadOS는 데스크톱 UA라 버전이 안 잡힌다). 모르는 버전은 막지 않는다
+  if (iosVersion > 0 && iosVersion < 16.4) {
     return {
       supported: false,
       reason: `iOS ${iosVersion}에서는 푸시 알림을 지원하지 않습니다. iOS 16.4 이상으로 업데이트해 주세요.`
@@ -53,6 +54,14 @@ export function checkIOSPushSupport(): { supported: boolean; reason?: string } {
       reason: isSafari
         ? '푸시 알림을 받으려면 앱을 홈 화면에 추가해 주세요. Safari 하단의 공유 버튼 → "홈 화면에 추가"를 탭하세요.'
         : '푸시 알림을 받으려면 Safari에서 열고 홈 화면에 추가해 주세요.'
+    }
+  }
+
+  // 버전 대신 실제 기능 유무로 판단한다
+  if (!('Notification' in window) || !('PushManager' in window)) {
+    return {
+      supported: false,
+      reason: '이 기기에서는 푸시 알림을 사용할 수 없습니다. iOS 16.4 이상인지 확인해 주세요.'
     }
   }
 
@@ -167,7 +176,7 @@ export async function requestNotificationPermission(userId: string): Promise<str
   }
 }
 
-// Firestore에 FCM 토큰 저장
+// Firestore에 FCM 토큰 저장 (기기마다 하나씩 fcmTokens 에 쌓는다. 구버전 fcmToken 은 더 이상 쓰지 않는다)
 async function saveTokenToFirestore(
   userId: string,
   token: string,
@@ -175,7 +184,7 @@ async function saveTokenToFirestore(
 ) {
   const userRef = doc(db, 'users', userId)
   await setDoc(userRef, {
-    fcmToken: token,
+    fcmTokens: arrayUnion(token),
     tokenUpdatedAt: new Date().toISOString(),
     tokenPlatform: platform.isIOS ? 'ios' : platform.isAndroid ? 'android' : 'web',
     tokenIsStandalone: platform.isStandalone
@@ -200,13 +209,58 @@ export async function setupForegroundMessageListener(
   })
 }
 
-// 사용자의 FCM 토큰 조회
-export async function getUserToken(userId: string): Promise<string | null> {
+// 한 사용자의 토큰 = 기기별 fcmTokens + 구버전 단일 fcmToken (중복 제거)
+// users 문서는 본인이 쓸 수 있는 값이라, 배열이 아니면 버린다 (안 그러면 문서 하나가 발송 전체를 죽인다)
+export function userTokens(data: { fcmToken?: string; fcmTokens?: string[] }): string[] {
+  return [...new Set([...(Array.isArray(data.fcmTokens) ? data.fcmTokens : []), ...(data.fcmToken ? [data.fcmToken] : [])])]
+}
+
+// 이 기기의 현재 FCM 토큰. 권한 요청 창을 띄우지 않고 SW 스크립트도 등록하지 않는다
+export async function getDeviceToken(): Promise<string | null> {
+  try {
+    if (!('Notification' in window) || Notification.permission !== 'granted') return null
+
+    const messaging = await getMessagingInstance()
+    if (!messaging) return null
+
+    // 이미 등록된 SW만 쓴다 (registerFCMServiceWorker 를 부르면 페이지를 열 때마다 활성 SW가 바뀐다)
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (!registration) return null
+
+    // 푸시 구독이 없으면 토큰도 없다 (getToken 은 구독이 없으면 새로 만들어 버린다)
+    if (!(await registration.pushManager.getSubscription())) return null
+
+    return (await getToken(messaging, {
+      vapidKey: VAPID_KEY,
+      serviceWorkerRegistration: registration
+    })) || null
+  } catch (error) {
+    console.error('[FCM] 기기 토큰 조회 실패:', error)
+    return null
+  }
+}
+
+// 이 기기가 해당 사용자의 알림 수신 기기로 등록돼 있는지
+export async function isDeviceRegistered(userId: string): Promise<boolean> {
+  const token = await getDeviceToken()
+  if (!token) return false
+
+  const userDoc = await getDoc(doc(db, 'users', userId))
+  return userDoc.exists() && userTokens(userDoc.data()).includes(token)
+}
+
+// 이 기기의 토큰만 지운다 (같은 계정의 다른 기기 알림은 그대로 둔다)
+export async function disableDeviceNotifications(userId: string): Promise<void> {
+  const token = await getDeviceToken()
+  if (!token) return
+
   const userRef = doc(db, 'users', userId)
   const userDoc = await getDoc(userRef)
+  if (!userDoc.exists()) return
 
-  if (userDoc.exists()) {
-    return userDoc.data().fcmToken || null
-  }
-  return null
+  await updateDoc(userRef, {
+    fcmTokens: arrayRemove(token),
+    // 구버전 단일 토큰이 이 기기의 것이면 함께 지운다
+    ...(userDoc.data().fcmToken === token ? { fcmToken: deleteField() } : {})
+  })
 }

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { collection, getDocs, addDoc, updateDoc, doc, query, orderBy, where, writeBatch } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
+import { userTokens } from '../firebase/fcm'
 import { Schedule, ScheduleType, SCHEDULE_TYPE_LABELS, User, Reminder } from '../types'
 import { presetFor, applyTypeChange } from '../schedulePresets'
 import './ScheduleManagePage.css'
@@ -148,15 +149,16 @@ export default function ScheduleManagePage() {
 
   const sendNotification = async (scheduleTitle: string, isUpdate: boolean) => {
     const usersSnapshot = await getDocs(collection(db, 'users'))
-    const tokens: string[] = []
+    const tokenSet = new Set<string>() // 같은 토큰이 두 번 들어가지 않게 한다
 
     usersSnapshot.forEach((doc) => {
       const userData = doc.data() as User
-      if (userData.fcmToken) {
-        tokens.push(userData.fcmToken)
-      }
+      // 승인 대기 계정은 알림 대상이 아니다
+      if (userData.role === 'pending') return
+      userTokens(userData).forEach((token) => tokenSet.add(token))
     })
 
+    const tokens = [...tokenSet]
     if (tokens.length === 0) return
 
     await addDoc(collection(db, 'notifications'), {

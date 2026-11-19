@@ -6,7 +6,7 @@
 //     firebase emulators:exec --project demo-fogi --only firestore "node scripts/firestore-rules.test.mjs"
 import { readFileSync } from 'node:fs'
 import { initializeTestEnvironment, assertFails, assertSucceeds } from '@firebase/rules-unit-testing'
-import { doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, collection, getDocs, query, where } from 'firebase/firestore'
+import { doc, getDoc, setDoc, updateDoc, deleteDoc, deleteField, arrayUnion, arrayRemove, collection, getDocs, query, where } from 'firebase/firestore'
 
 const testEnv = await initializeTestEnvironment({
   projectId: 'demo-fogi',
@@ -19,6 +19,7 @@ const testEnv = await initializeTestEnvironment({
 
 const MONTH = '2026-08'
 const MGR = 'mgrUid', A = 'aliceUid', B = 'bobUid'
+const P = 'pendingUid', P2 = 'rejectedUid', GHOST = 'ghostUid' // 승인 대기 2명 + users 문서가 없는 계정
 
 // 시드: users + manito 문서 (규칙 우회)
 await testEnv.withSecurityRulesDisabled(async ctx => {
@@ -26,6 +27,8 @@ await testEnv.withSecurityRulesDisabled(async ctx => {
   await setDoc(doc(db, 'users', MGR), { name: '매니저', role: 'manager', part: 'vocal' })
   await setDoc(doc(db, 'users', A), { name: '앨리스', role: 'member', part: 'guitar' })
   await setDoc(doc(db, 'users', B), { name: '밥', role: 'member', part: 'drum' })
+  await setDoc(doc(db, 'users', P), { name: '대기', role: 'pending', part: 'bass' })
+  await setDoc(doc(db, 'users', P2), { name: '거절', role: 'pending', part: 'etc' })
   await setDoc(doc(db, 'manito', MONTH), { month: MONTH, participantIds: [MGR, A, B], drawnAt: 'now', updatedAt: 'now' })
   await setDoc(doc(db, 'manito', `${MONTH}_${A}`), { month: MONTH, userId: A, targetId: B, createdAt: 'now' })
   await setDoc(doc(db, 'manito', `${MONTH}_${B}`), { month: MONTH, userId: B, targetId: MGR, createdAt: 'now' })
@@ -40,6 +43,8 @@ await testEnv.withSecurityRulesDisabled(async ctx => {
 const alice = testEnv.authenticatedContext(A).firestore()
 const bob = testEnv.authenticatedContext(B).firestore()
 const mgr = testEnv.authenticatedContext(MGR).firestore()
+const pend = testEnv.authenticatedContext(P).firestore()
+const ghost = testEnv.authenticatedContext(GHOST).firestore()
 const anon = testEnv.unauthenticatedContext().firestore()
 
 const t = []
@@ -77,10 +82,10 @@ await check('부원이 본인 name 변경 → 허용', () => assertSucceeds(upda
 await check('부원이 fcmToken setDoc merge → 허용', () => assertSucceeds(setDoc(doc(alice, 'users', A), { fcmToken: 'tok', tokenUpdatedAt: 'x' }, { merge: true })))
 await check('부원이 fcmToken deleteField → 허용', () => assertSucceeds(updateDoc(doc(alice, 'users', A), { fcmToken: deleteField() })))
 await check('매니저가 타인 role 변경 → 허용', () => assertSucceeds(updateDoc(doc(mgr, 'users', B), { role: 'manager' })))
-await check('신규 가입 본인 문서 생성 → 허용', async () => {
+await check('신규 가입이 role:member 로 본인 문서 생성 → 차단', async () => {
   const newUid = 'newUid'
   const fresh = testEnv.authenticatedContext(newUid).firestore()
-  await assertSucceeds(setDoc(doc(fresh, 'users', newUid), { name: '신입', email: 'n@t.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
+  await assertFails(setDoc(doc(fresh, 'users', newUid), { name: '신입', email: 'n@t.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
 })
 
 // 권한 상승 / 위조 차단 (감사 확정 사항)
@@ -89,10 +94,25 @@ await check('신규 계정이 role:manager 로 가입 → 차단', async () => {
   await assertFails(setDoc(doc(atk, 'users', 'attackerUid'),
     { name: 'x', email: 'x@x.com', role: 'manager', part: 'vocal', birthday: '2000-01-01', createdAt: 'x' }))
 })
-await check('신규 계정이 role:member 로 가입 → 허용', async () => {
-  const ok = testEnv.authenticatedContext('newbieUid').firestore()
-  await assertSucceeds(setDoc(doc(ok, 'users', 'newbieUid'),
+await check('신규 계정이 role:member 로 가입 → 차단 (승인 없이 부원이 될 수 없다)', async () => {
+  const atk = testEnv.authenticatedContext('newbieUid').firestore()
+  await assertFails(setDoc(doc(atk, 'users', 'newbieUid'),
     { name: '신입', email: 'n@x.com', role: 'member', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
+})
+await check('신규 계정이 role:pending 으로 가입 → 허용', async () => {
+  const ok = testEnv.authenticatedContext('signupUid').firestore()
+  await assertSucceeds(setDoc(doc(ok, 'users', 'signupUid'),
+    { name: '신입', email: 'n@x.com', role: 'pending', part: 'etc', birthday: '2000-01-01', createdAt: 'x' }))
+})
+await check('신규 계정이 가입 폼에 없는 필드(fcmTokens)를 넣어 가입 → 차단', async () => {
+  const atk = testEnv.authenticatedContext('stufferUid').firestore()
+  await assertFails(setDoc(doc(atk, 'users', 'stufferUid'),
+    { name: 'x', email: 'x@x.com', role: 'pending', part: 'etc', birthday: '2000-01-01', createdAt: 'x', fcmTokens: ['junk'] }))
+})
+await check('신규 계정이 문자열이 아닌 필드로 가입 → 차단', async () => {
+  const atk = testEnv.authenticatedContext('crasherUid').firestore()
+  await assertFails(setDoc(doc(atk, 'users', 'crasherUid'),
+    { name: 'x', email: 'x@x.com', role: 'pending', part: { toString: 1 }, birthday: '2000-01-01', createdAt: 'x' }))
 })
 await check('부원이 임의 접두사 rsvp 위조 → 차단', () => assertFails(setDoc(doc(alice, 'rsvps', `zz1_${A}`),
   { scheduleId: 'sch1', userId: B, status: 'absent', updatedAt: 'x' })))
@@ -106,6 +126,42 @@ await check('부원이 자기 rsvp 수정 → 허용', () => assertSucceeds(setD
   { scheduleId: 'sch1', userId: A, status: 'late', updatedAt: 'y' })))
 await check('부원이 notifications 열람 → 차단', () => assertFails(getDocs(collection(alice, 'notifications'))))
 await check('매니저가 notifications 열람 → 허용', () => assertSucceeds(getDocs(collection(mgr, 'notifications'))))
+
+// 가입 승인 게이팅 (승인 전 pending 계정과 users 문서가 없는 계정은 부원 데이터를 볼 수 없다)
+await check('대기 계정이 본인 users 문서 get → 허용', () => assertSucceeds(getDoc(doc(pend, 'users', P))))
+await check('문서 없는 계정이 본인 users 문서 get → 허용 (없는 문서, 로그인 시 조회한다)', () => assertSucceeds(getDoc(doc(ghost, 'users', GHOST))))
+for (const [who, db] of [['대기 계정', pend], ['문서 없는 계정', ghost]]) {
+  await check(`${who}이 남의 users 문서 get → 차단`, () => assertFails(getDoc(doc(db, 'users', A))))
+  await check(`${who}이 users list → 차단`, () => assertFails(getDocs(collection(db, 'users'))))
+  await check(`${who}이 schedules list → 차단`, () => assertFails(getDocs(collection(db, 'schedules'))))
+  await check(`${who}이 일정 문서 get → 차단`, () => assertFails(getDoc(doc(db, 'schedules', 'sch1'))))
+  await check(`${who}이 rsvps 조회 → 차단`, () => assertFails(getDocs(query(collection(db, 'rsvps'), where('scheduleId', '==', 'sch1')))))
+  await check(`${who}이 attendances 조회 → 차단`, () => assertFails(getDocs(collection(db, 'attendances'))))
+  await check(`${who}이 마니또 설정 문서 읽기 → 차단`, () => assertFails(getDoc(doc(db, 'manito', MONTH))))
+}
+await check('대기 계정이 rsvp 작성 → 차단', () => assertFails(setDoc(doc(pend, 'rsvps', `sch1_${P}`),
+  { scheduleId: 'sch1', userId: P, status: 'attending', updatedAt: 'x' })))
+await check('대기 계정이 본인 문서에 fcmTokens 추가 → 차단', () => assertFails(updateDoc(doc(pend, 'users', P), { fcmTokens: arrayUnion('tokP') })))
+await check('대기 계정이 스스로 role:member 로 승인 → 차단', () => assertFails(updateDoc(doc(pend, 'users', P), { role: 'member' })))
+await check('부원이 대기 계정 승인 → 차단', () => assertFails(updateDoc(doc(alice, 'users', P), { role: 'member' })))
+await check('부원이 대기 계정 삭제 → 차단', () => assertFails(deleteDoc(doc(alice, 'users', P2))))
+await check('매니저가 승인 대기 목록 조회 → 허용', () => assertSucceeds(getDocs(query(collection(mgr, 'users'), where('role', '==', 'pending')))))
+await check('매니저가 가입 승인 (pending → member) → 허용', () => assertSucceeds(updateDoc(doc(mgr, 'users', P), { role: 'member' })))
+await check('매니저가 가입 거절 (users 문서 삭제) → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'users', P2))))
+await check('승인된 계정이 users list → 허용', () => assertSucceeds(getDocs(collection(pend, 'users'))))
+await check('승인된 계정이 schedules list → 허용', () => assertSucceeds(getDocs(collection(pend, 'schedules'))))
+await check('승인된 계정이 rsvps 조회 → 허용', () => assertSucceeds(getDocs(query(collection(pend, 'rsvps'), where('scheduleId', '==', 'sch1')))))
+await check('승인된 계정이 attendances 조회 → 허용', () => assertSucceeds(getDocs(collection(pend, 'attendances'))))
+await check('승인된 계정이 마니또 설정 문서 읽기 → 허용', () => assertSucceeds(getDoc(doc(pend, 'manito', MONTH))))
+await check('승인된 계정이 rsvp 작성 → 허용', () => assertSucceeds(setDoc(doc(pend, 'rsvps', `sch1_${P}`),
+  { scheduleId: 'sch1', userId: P, status: 'attending', updatedAt: 'x' })))
+// 기기별 푸시 토큰 (fcmTokens 는 arrayUnion / arrayRemove 로만 쓴다)
+await check('부원이 본인 fcmTokens arrayUnion (setDoc merge) → 허용', () => assertSucceeds(setDoc(doc(alice, 'users', A), { fcmTokens: arrayUnion('tokA') }, { merge: true })))
+await check('부원이 본인 fcmTokens arrayRemove → 허용', () => assertSucceeds(updateDoc(doc(alice, 'users', A), { fcmTokens: arrayRemove('tokA') })))
+await check('부원이 남의 fcmTokens 수정 → 차단', () => assertFails(updateDoc(doc(alice, 'users', B), { fcmTokens: arrayUnion('tokX') })))
+await check('부원이 fcmTokens 에 21개 넣기 → 차단 (발송 상한 500개 보호)', () =>
+  assertFails(updateDoc(doc(alice, 'users', A), { fcmTokens: Array.from({ length: 21 }, (_, i) => 'junk' + i) })))
+await check('부원이 fcmTokens 를 배열이 아닌 값으로 → 차단', () => assertFails(updateDoc(doc(alice, 'users', A), { fcmTokens: 'junk' })))
 
 // 일정 삭제 시 딸린 기록 정리 (매니저가 일괄 삭제한다)
 await check('매니저가 남의 rsvp 삭제 → 허용', () => assertSucceeds(deleteDoc(doc(mgr, 'rsvps', `sch1_${A}`))))

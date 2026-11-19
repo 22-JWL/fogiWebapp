@@ -1,9 +1,31 @@
 import { useState } from 'react'
-import { collection, getDocs, addDoc } from 'firebase/firestore'
+import { collection, getDocs, addDoc, onSnapshot, DocumentReference, DocumentData } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
+import { userTokens } from '../firebase/fcm'
 import { Part, PART_LABELS, User } from '../types'
 import './SendNotificationPage.css'
+
+// 서버(Cloud Functions)가 발송 결과를 기록할 때까지 기다린다.
+// 20초 안에 결과가 확정되지 않거나 문서를 읽지 못하면 null (리스너는 어느 경우든 해제한다)
+function waitForSendResult(ref: DocumentReference): Promise<DocumentData | null> {
+  return new Promise((resolve) => {
+    const finish = (data: DocumentData | null) => {
+      clearTimeout(timer)
+      unsubscribe()
+      resolve(data)
+    }
+    const timer = setTimeout(() => finish(null), 20000)
+    const unsubscribe = onSnapshot(
+      ref,
+      (snapshot) => {
+        const data = snapshot.data()
+        if (data && data.status !== 'pending' && data.status !== 'sending') finish(data)
+      },
+      () => finish(null)
+    )
+  })
+}
 
 export default function SendNotificationPage() {
   const { currentUser } = useAuth()
@@ -43,23 +65,24 @@ export default function SendNotificationPage() {
     try {
       // 모든 사용자 조회 후 클라이언트에서 필터링
       const usersSnapshot = await getDocs(collection(db, 'users'))
-      const tokens: string[] = []
+      const tokenSet = new Set<string>() // 같은 토큰이 두 번 들어가지 않게 한다
 
       console.log('[발송] 전체 사용자 수:', usersSnapshot.size)
 
       usersSnapshot.forEach((doc) => {
         const userData = doc.data() as User
-        console.log('[발송] 사용자:', userData.name, '파트:', userData.part, 'fcmToken:', userData.fcmToken ? '있음' : '없음')
+        console.log('[발송] 사용자:', userData.name, '파트:', userData.part, '토큰 수:', userTokens(userData).length)
 
-        // fcmToken이 있는 사용자만 필터링
-        if (!userData.fcmToken) return
+        // 승인 대기 계정은 알림 대상이 아니다
+        if (userData.role === 'pending') return
 
-        // 전체 발송이거나, 선택된 파트에 해당하는 경우
+        // 전체 발송이거나, 선택된 파트에 해당하는 경우 (한 사용자의 모든 기기 토큰)
         if (targetType === 'all' || selectedParts.includes(userData.part)) {
-          tokens.push(userData.fcmToken)
+          userTokens(userData).forEach((token) => tokenSet.add(token))
         }
       })
 
+      const tokens = [...tokenSet]
       console.log('[발송] 발송 대상 토큰 수:', tokens.length)
 
       if (tokens.length === 0) {
@@ -71,7 +94,7 @@ export default function SendNotificationPage() {
       }
 
       // Firestore에 알림 기록 저장 (Cloud Functions에서 실제 발송)
-      await addDoc(collection(db, 'notifications'), {
+      const notificationRef = await addDoc(collection(db, 'notifications'), {
         title,
         body: content,
         targetType,
@@ -82,16 +105,33 @@ export default function SendNotificationPage() {
         status: 'pending'
       })
 
-      setResult({
-        success: true,
-        message: `${tokens.length}명에게 알림 발송을 요청했습니다.`
-      })
+      // 문서 저장만으로는 발송된 것이 아니다. 서버가 실제로 보냈는지 확인한 뒤에 결과를 알린다
+      const sendResult = await waitForSendResult(notificationRef)
 
-      // 폼 초기화
-      setTitle('')
-      setContent('')
-      setTargetType('all')
-      setSelectedParts([])
+      if (sendResult?.status === 'sent' && sendResult.successCount > 0) {
+        setResult({
+          success: true,
+          message: `기기 ${sendResult.successCount}대에 알림을 발송했습니다.` +
+            (sendResult.failureCount > 0 ? ` (${sendResult.failureCount}대는 실패)` : '')
+        })
+
+        // 폼 초기화 (발송이 확인됐을 때만. 확인되지 않았으면 작성한 내용을 남겨 둔다)
+        setTitle('')
+        setContent('')
+        setTargetType('all')
+        setSelectedParts([])
+      } else if (sendResult) {
+        // status: 'error' | 'no_tokens', 또는 'sent' 지만 한 대도 성공하지 못한 경우
+        setResult({
+          success: false,
+          message: '알림 발송에 실패했습니다. 공지가 전달되지 않았으니 다른 방법으로도 알려 주세요.'
+        })
+      } else {
+        setResult({
+          success: false,
+          message: '발송 요청은 저장됐지만 서버에서 발송 확인을 받지 못했습니다. 알림이 전달되지 않았을 수 있으니 다른 방법으로도 공지해 주세요.'
+        })
+      }
     } catch (error) {
       console.error('알림 발송 오류:', error)
       setResult({

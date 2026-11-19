@@ -11,27 +11,47 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
 
+    // 요청자 본인 users 문서의 role (문서가 없으면 평가 오류 → 거부)
+    function myRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
     // 매니저인지 확인
     function isManager() {
-      return isAuthenticated() &&
-        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'manager';
+      return isAuthenticated() && myRole() == 'manager';
+    }
+
+    // 승인된 부원인지 확인 (매니저 포함. 가입 후 승인 대기 중인 'pending' 계정은 제외)
+    function isMember() {
+      return isAuthenticated() && myRole() in ['member', 'manager'];
     }
 
     // 사용자 컬렉션
     match /users/{userId} {
-      // 읽기: 인증된 모든 사용자 (멤버 목록 조회, 참석률 계산 등)
-      allow read: if isAuthenticated();
+      // 읽기: 본인 문서, 또는 승인된 부원 (멤버 목록 조회, 참석률 계산 등)
+      // 승인 대기 계정은 본인 문서만 get 할 수 있고, 목록이나 남의 문서는 읽을 수 없다
+      allow read: if isAuthenticated() && (isOwner(userId) || isMember());
 
-      // 생성: 인증된 사용자가 본인 문서 생성 (role은 member로 고정 — 스스로 매니저가 될 수 없다)
-      allow create: if isOwner(userId) && request.resource.data.role == 'member';
+      // 생성: 인증된 사용자가 본인 문서 생성 (role은 pending으로 고정 — 매니저가 승인해야 부원이 된다)
+      // 필드는 가입 폼이 쓰는 문자열 6개로 고정한다 (승인 전 계정이 fcmTokens·id 같은 값을 미리 심지 못하게)
+      allow create: if isOwner(userId) && request.resource.data.role == 'pending'
+        && request.resource.data.keys().hasOnly(['name', 'email', 'role', 'part', 'birthday', 'createdAt'])
+        && request.resource.data.name is string
+        && request.resource.data.email is string
+        && request.resource.data.part is string
+        && request.resource.data.birthday is string
+        && request.resource.data.createdAt is string;
 
-      // 수정: 본인이 fcmToken, name 등 수정 가능 (단 role은 제외 — 스스로 매니저가 될 수 없다)
-      // 역할(role) 변경은 매니저만 가능
-      allow update: if (isOwner(userId) &&
-          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role'])) ||
+      // 수정: 승인된 본인이 fcmTokens, name 등 수정 가능 (단 role은 제외 — 스스로 승인하거나 매니저가 될 수 없다)
+      // fcmTokens 는 기기 20대까지 (한 계정이 수백 개를 넣으면 500개 발송 상한을 넘겨 전체 알림이 실패한다)
+      // 역할(role) 변경은 매니저만 가능 (가입 승인 = pending → member)
+      allow update: if (isOwner(userId) && resource.data.role in ['member', 'manager'] &&
+          !request.resource.data.diff(resource.data).affectedKeys().hasAny(['role']) &&
+          request.resource.data.get('fcmTokens', []) is list &&
+          request.resource.data.get('fcmTokens', []).size() <= 20) ||
         (isManager() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['role']));
 
-      // 삭제: 매니저만
+      // 삭제: 매니저만 (가입 거절 포함)
       allow delete: if isManager();
     }
 
@@ -49,8 +69,8 @@ service cloud.firestore {
 
     // 일정 컬렉션
     match /schedules/{scheduleId} {
-      // 읽기: 인증된 사용자
-      allow read: if isAuthenticated();
+      // 읽기: 승인된 부원
+      allow read: if isMember();
 
       // 생성/수정/삭제: 매니저만
       allow create, update, delete: if isManager();
@@ -58,20 +78,20 @@ service cloud.firestore {
 
     // 출석 컬렉션 (매니저가 관리하는 실제 출석)
     match /attendances/{attendanceId} {
-      // 읽기: 인증된 사용자
-      allow read: if isAuthenticated();
+      // 읽기: 승인된 부원
+      allow read: if isMember();
 
       // 생성/수정/삭제: 매니저만
       allow create, update, delete: if isManager();
     }
 
     // 마니또 컬렉션
-    // manito/{YYYY-MM}          = 설정 문서 (참가자 명단, 전원 읽기 가능)
+    // manito/{YYYY-MM}          = 설정 문서 (참가자 명단, 승인된 부원 전원 읽기 가능)
     // manito/{YYYY-MM}_{userId} = 배정 문서 (본인과 매니저만 읽기 가능)
     match /manito/{docId} {
       // 읽기: 매니저는 전부, 부원은 설정 문서와 본인 배정 문서만
       allow read: if isManager() ||
-        (isAuthenticated() &&
+        (isMember() &&
           (docId.split('_').size() == 1 || docId.split('_')[1] == request.auth.uid));
 
       // 생성/수정/삭제: 매니저만
@@ -80,19 +100,19 @@ service cloud.firestore {
 
     // RSVP 컬렉션 (부원이 직접 입력하는 참석 예정)
     match /rsvps/{rsvpId} {
-      // 읽기: 인증된 사용자
-      allow read: if isAuthenticated();
+      // 읽기: 승인된 부원
+      allow read: if isMember();
 
-      // 생성/수정: 본인 RSVP만. 문서 ID와 본문을 모두 본인에게 묶는다
+      // 생성/수정: 승인된 부원이 본인 RSVP만. 문서 ID와 본문을 모두 본인에게 묶는다
       // (ID 접미사만 보면 임의 접두사로 남의 userId를 넣은 위조 문서를 만들 수 있다)
-      allow create, update: if isAuthenticated()
+      allow create, update: if isMember()
         && rsvpId == request.resource.data.scheduleId + '_' + request.auth.uid
         && request.resource.data.userId == request.auth.uid
         && request.resource.data.status in ['attending', 'late', 'absent'];
 
       // 삭제: 본인, 그리고 매니저(일정 삭제 시 딸린 응답을 함께 정리한다)
       allow delete: if isManager() ||
-        (isAuthenticated() && rsvpId.split('_')[1] == request.auth.uid);
+        (isMember() && rsvpId.split('_')[1] == request.auth.uid);
     }
   }
 }

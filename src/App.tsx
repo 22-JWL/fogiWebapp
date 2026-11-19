@@ -12,15 +12,28 @@ import AttendanceManagePage from './pages/AttendanceManagePage'
 import RsvpManagePage from './pages/RsvpManagePage'
 import ManitoPage from './pages/ManitoPage'
 import ManitoManagePage from './pages/ManitoManagePage'
+import MemberApprovalPage from './pages/MemberApprovalPage'
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
-  const { currentUser, loading } = useAuth()
+  const { currentUser, loading, signOut } = useAuth()
 
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
         <p>로딩 중...</p>
+      </div>
+    )
+  }
+
+  // 가입 후 매니저 승인 전 — firestore.rules 가 부원 데이터를 막으므로 페이지 대신 안내만 보여준다
+  if (currentUser?.role === 'pending') {
+    return (
+      <div className="loading-screen" style={{ padding: 20, textAlign: 'center' }}>
+        <h2>가입 승인 대기 중</h2>
+        <p>매니저가 가입을 승인하면 이용할 수 있습니다.</p>
+        <button className="btn-primary" onClick={() => window.location.reload()}>승인 여부 다시 확인</button>
+        <button className="btn-secondary" onClick={signOut}>로그아웃</button>
       </div>
     )
   }
@@ -109,6 +122,14 @@ function AppRoutes() {
         element={
           <PrivateRoute>
             <ManitoManagePage />
+          </PrivateRoute>
+        }
+      />
+      <Route
+        path="/member-approval"
+        element={
+          <PrivateRoute>
+            <MemberApprovalPage />
           </PrivateRoute>
         }
       />

@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
-import { doc, getDoc } from 'firebase/firestore'
+import { collection, getDocs, query, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
 import {
   requestNotificationPermission,
+  isDeviceRegistered,
   getPlatformInfo
 } from '../firebase/fcm'
 import { PART_LABELS } from '../types'
@@ -16,6 +17,7 @@ export default function MyPage() {
   const [isRegistering, setIsRegistering] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
   const [platformInfo] = useState(() => getPlatformInfo())
+  const [pendingCount, setPendingCount] = useState(0)
 
   useEffect(() => {
     if (!currentUser) return
@@ -25,23 +27,18 @@ export default function MyPage() {
       setNotificationStatus(Notification.permission as 'pending' | 'granted' | 'denied')
     }
 
-    // Firestore에서 토큰 존재 여부 확인
-    const checkToken = async () => {
-      const userDoc = await getDoc(doc(db, 'users', currentUser.id))
-      if (userDoc.exists() && userDoc.data().fcmToken) {
-        setHasToken(true)
-      } else {
-        setHasToken(false)
-        // 권한이 granted인데 토큰이 없으면 자동 등록 시도
-        if (Notification.permission === 'granted') {
-          const token = await requestNotificationPermission(currentUser.id)
-          if (token) {
-            setHasToken(true)
-          }
-        }
-      }
+    // 이 기기가 알림 수신 기기로 등록돼 있는지 확인
+    // (등록이 없다고 자동으로 재등록하지 않는다 — 사용자가 끈 알림이 되살아난다)
+    isDeviceRegistered(currentUser.id)
+      .then(setHasToken)
+      .catch(() => setHasToken(false))
+
+    // 매니저에게는 가입 승인 대기 인원을 보여준다 (조회에 실패해도 페이지는 그대로 동작해야 한다)
+    if (currentUser.role === 'manager') {
+      getDocs(query(collection(db, 'users'), where('role', '==', 'pending')))
+        .then((snapshot) => setPendingCount(snapshot.size))
+        .catch((error) => console.error('승인 대기 인원 조회 실패:', error))
     }
-    checkToken()
   }, [currentUser])
 
   const handleEnableNotifications = async () => {
@@ -156,6 +153,11 @@ export default function MyPage() {
         {currentUser.role === 'manager' && (
           <section className="manager-section card">
             <h3>매니저 메뉴</h3>
+            <a href="/member-approval" className="menu-link">
+              <span className="menu-icon">🙋</span>
+              <span className="menu-text">가입 승인{pendingCount > 0 && ` (${pendingCount})`}</span>
+              <span className="menu-arrow">›</span>
+            </a>
             <a href="/send-notification" className="menu-link">
               <span className="menu-icon">📢</span>
               <span className="menu-text">공지사항 발송</span>

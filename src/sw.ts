@@ -38,9 +38,13 @@ async function initializeFirebase() {
     messaging.onBackgroundMessage((payload: { notification?: { title?: string; body?: string }; data?: Record<string, string> }) => {
       console.log('[SW] 백그라운드 메시지 수신:', payload)
 
-      const notificationTitle = payload.notification?.title || '새 알림'
+      // notification 필드가 있으면 Firebase SDK가 이미 알림을 표시했다 (여기서 또 띄우면 두 번 뜬다)
+      // data-only 메시지일 때만 직접 표시한다
+      if (payload.notification || !payload.data) return
+
+      const notificationTitle = payload.data.title || '새 알림'
       const notificationOptions: NotificationOptions = {
-        body: payload.notification?.body || '',
+        body: payload.data.body || '',
         icon: '/pwa-192x192.png',
         badge: '/pwa-192x192.png',
         tag: 'bandmate-notification',
@@ -54,9 +58,9 @@ async function initializeFirebase() {
   }
 }
 
-initializeFirebase()
-
 // 알림 클릭 처리
+// Firebase SDK는 fb.messaging() 시점에 자체 notificationclick 리스너를 등록하고 stopImmediatePropagation 을 부른다.
+// 그보다 먼저 등록해야 SDK가 띄운 알림을 눌렀을 때도 이 리스너가 실행되어 앱이 열린다.
 self.addEventListener('notificationclick', (event: NotificationEvent) => {
   console.log('[SW] 알림 클릭:', event)
   event.notification.close()
@@ -76,3 +80,6 @@ self.addEventListener('notificationclick', (event: NotificationEvent) => {
       })
   )
 })
+
+// 반드시 위 notificationclick 리스너 등록 뒤에 호출할 것 (순서가 바뀌면 알림을 눌러도 앱이 열리지 않는다)
+initializeFirebase()

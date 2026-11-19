@@ -49,17 +49,20 @@ interface UserDoc {
   birthday: string  // YYYY-MM-DD
   role: string
   part: string
-  fcmToken?: string
+  fcmTokens?: string[]  // 알림을 켠 기기별 FCM 토큰
+  fcmToken?: string  // 구버전 단일 토큰 (수신 대상에는 계속 포함한다)
 }
 
 // 이 코드만 토큰을 영구 삭제한다. '토큰이 죽었다'는 뜻인 코드만 넣을 것.
+// 'messaging/invalid-argument' 는 넣으면 안 된다 — FCM v1 의 INVALID_ARGUMENT 는 토큰이 아니라
+// 메시지 자체가 잘못됐을 때(형식 오류·용량 초과)도 수신자 전원에게 똑같이 돌아오므로,
+// 잘못된 공지 한 건에 전 부원의 토큰이 지워진다.
 const DEAD_TOKEN_CODES = [
   'messaging/registration-token-not-registered',
-  'messaging/invalid-registration-token',
-  'messaging/invalid-argument'
+  'messaging/invalid-registration-token'
 ]
 
-// Firestore 'in' 필터 값 개수 상한
+// Firestore 'in' / 'array-contains-any' 필터 값 개수 상한
 const IN_QUERY_LIMIT = 30
 
 // 미리 알림으로 지정할 수 있는 최대 일수. ScheduleManagePage 의 '일 전' 입력 상한과 반드시 같아야 한다.
@@ -70,6 +73,27 @@ const SCHEDULE_TYPE_LABELS: Record<string, string> = {
   performance: '공연',
   meeting: '회식',
   birthday: '생일'
+}
+
+// 한 사용자의 푸시 토큰: fcmTokens(기기별)와 구버전 fcmToken 의 중복 없는 합집합.
+// users 문서는 본인이 쓸 수 있는 값이라 문자열이 아닌 것은 버린다.
+function userTokens(user: { fcmToken?: unknown; fcmTokens?: unknown }): string[] {
+  const list: unknown[] = Array.isArray(user.fcmTokens) ? user.fcmTokens : []
+  return [...new Set([...list, user.fcmToken])].filter(
+    (token): token is string => typeof token === 'string' && token !== ''
+  )
+}
+
+// 자동 알림(리마인더·생일) 수신 토큰: 승인 대기(pending) 계정은 빼고, 사용자 간 중복도 없앤다.
+// ponytail: 합계가 500개를 넘으면 sendEachForMulticast 가 통째로 실패한다. 그 규모가 되면 500개씩 나눠 보낼 것.
+function recipientTokens(usersSnapshot: FirebaseFirestore.QuerySnapshot): string[] {
+  const tokens = new Set<string>()
+  usersSnapshot.forEach((userDoc) => {
+    const user = userDoc.data()
+    if (user.role === 'pending') return
+    userTokens(user).forEach((token) => tokens.add(token))
+  })
+  return [...tokens]
 }
 
 // Firestore에 알림 문서가 생성되면 FCM 발송
@@ -86,7 +110,9 @@ export const sendPushNotification = onDocumentCreated(
     }
 
     const notification = snap.data() as NotificationDoc
-    const { title, body, tokens } = notification
+    const { title, body } = notification
+    // 같은 토큰이 두 번 들어 있으면 같은 기기에 알림이 두 번 간다
+    const tokens = Array.isArray(notification.tokens) ? [...new Set(notification.tokens)] : []
 
     // onDocumentCreated 는 최소 1회 전달이라 중복 실행될 수 있다.
     // status 를 선점해 같은 알림이 두 번 나가는 것을 막는다.
@@ -140,15 +166,20 @@ export const sendPushNotification = onDocumentCreated(
       // 정리는 실패해도 발송 결과를 오염시키면 안 된다 (푸시는 이미 나갔다)
       if (failedTokens.length > 0) {
         try {
-          // Firestore 'in' 은 값 30개가 상한이라 잘라서 조회한다
+          // Firestore 'in' / 'array-contains-any' 는 값 30개가 상한이라 잘라서 조회한다
           for (let i = 0; i < failedTokens.length; i += IN_QUERY_LIMIT) {
             const chunk = failedTokens.slice(i, i + IN_QUERY_LIMIT)
-            const usersSnapshot = await db.collection('users')
-              .where('fcmToken', 'in', chunk)
-              .get()
+            // 토큰은 fcmTokens(기기별 배열)와 구버전 fcmToken(단일 값) 두 곳에 있을 수 있다
+            const [arraySnapshot, legacySnapshot] = await Promise.all([
+              db.collection('users').where('fcmTokens', 'array-contains-any', chunk).get(),
+              db.collection('users').where('fcmToken', 'in', chunk).get()
+            ])
 
             const batch = db.batch()
-            usersSnapshot.docs.forEach((doc) => {
+            arraySnapshot.docs.forEach((doc) => {
+              batch.update(doc.ref, { fcmTokens: FieldValue.arrayRemove(...chunk) })
+            })
+            legacySnapshot.docs.forEach((doc) => {
               batch.update(doc.ref, { fcmToken: FieldValue.delete() })
             })
             await batch.commit()
@@ -217,12 +248,7 @@ export const checkScheduleReminders = onSchedule(
       let cachedTokens: string[] | null = null
       const getTokens = async (): Promise<string[]> => {
         if (cachedTokens) return cachedTokens
-        const usersSnapshot = await db.collection('users').get()
-        const list: string[] = []
-        usersSnapshot.forEach((userDoc) => {
-          const token = userDoc.data().fcmToken
-          if (token) list.push(token)
-        })
+        const list = recipientTokens(await db.collection('users').get())
         cachedTokens = list
         console.log(`[리마인더] FCM 토큰 수: ${list.length}`)
         return list
@@ -306,6 +332,24 @@ export const checkScheduleReminders = onSchedule(
   }
 )
 
+// 생일 일정 문서. onUserCreated 와 syncBirthdaySchedules 가 같은 모양으로 만든다.
+// birthday 는 호출 전에 isValidBirthday 로 검증돼 있어야 한다.
+function buildBirthdaySchedule(userId: string, user: UserDoc) {
+  const safeName = sanitizeName(user.name)
+  return {
+    title: `🎂 ${safeName}님의 생일`,
+    type: 'birthday',
+    date: getNextBirthday(user.birthday),
+    startTime: '00:00',
+    endTime: '23:59',
+    location: '',
+    description: `${safeName}님의 생일을 축하해 주세요!`,
+    userId,
+    createdBy: 'system',
+    createdAt: new Date().toISOString()
+  }
+}
+
 // 회원가입 시 생일 일정 자동 생성
 export const onUserCreated = onDocumentCreated(
   {
@@ -322,6 +366,13 @@ export const onUserCreated = onDocumentCreated(
     const user = snap.data() as UserDoc
     const userId = event.params.userId
 
+    // 승인 대기 계정은 아직 부원이 아니므로 캘린더에 올리지 않는다.
+    // 승인된 뒤에는 매일 아침 syncBirthdaySchedules 가 빠진 생일 일정을 만들어 준다.
+    if (user.role === 'pending') {
+      console.log(`[생일] 승인 대기 계정 - 생일 일정을 만들지 않음: ${userId}`)
+      return
+    }
+
     // 이 트리거는 가입자가 직접 만든 문서로 실행된다.
     // schedules 는 매니저만 쓸 수 있는데 이 함수는 admin 권한이므로, 검증 없이 넘기면
     // 부원이 전 부원에게 보이는 일정에 임의 문구를 넣는 우회로가 된다.
@@ -334,27 +385,13 @@ export const onUserCreated = onDocumentCreated(
 
     console.log(`[생일] ${safeName}님 가입 - 생일: ${user.birthday}`)
 
-    // 올해 생일 날짜 계산
-    const birthdayThisYear = getNextBirthday(user.birthday)
-
     // 생일 일정 생성
-    const birthdaySchedule = {
-      title: `🎂 ${safeName}님의 생일`,
-      type: 'birthday',
-      date: birthdayThisYear,
-      startTime: '00:00',
-      endTime: '23:59',
-      location: '',
-      description: `${safeName}님의 생일을 축하해 주세요!`,
-      userId: userId,
-      createdBy: 'system',
-      createdAt: new Date().toISOString()
-    }
+    const birthdaySchedule = buildBirthdaySchedule(userId, user)
 
     try {
       // 문서 ID를 사용자에 고정한다 — 트리거가 중복 전달돼도 생일 일정이 여러 개 생기지 않는다
       await db.collection('schedules').doc(`birthday_${userId}`).set(birthdaySchedule)
-      console.log(`[생일] ${safeName}님의 생일 일정 생성 완료: ${birthdayThisYear}`)
+      console.log(`[생일] ${safeName}님의 생일 일정 생성 완료: ${birthdaySchedule.date}`)
     } catch (error) {
       console.error(`[생일] 일정 생성 오류:`, error)
     }
@@ -362,6 +399,7 @@ export const onUserCreated = onDocumentCreated(
 )
 
 // 생일 일정의 date 를 항상 '다음 생일'로 유지한다 (놓친 실행도 다음날 자동 복구)
+// 생일 일정이 없는 부원은 여기서 만들어 준다 — 승인 대기 중에는 onUserCreated 가 만들지 않기 때문이다.
 async function syncBirthdaySchedules(
   usersSnapshot: FirebaseFirestore.QuerySnapshot
 ): Promise<void> {
@@ -374,20 +412,31 @@ async function syncBirthdaySchedules(
 
   const batch = db.batch()
   let changed = 0
+  let created = 0
   usersSnapshot.forEach((userDoc) => {
     const user = userDoc.data() as UserDoc
     if (!isValidBirthday(user.birthday)) return
     const scheduleDoc = byUser.get(userDoc.id)
-    if (!scheduleDoc) return
+    if (!scheduleDoc) {
+      if (user.role === 'pending') return
+      // 기존 일정은 위에서 userId 필드로 찾았으므로(문서 ID 가 자동 생성된 것도 있다) 여기 오면 정말 없는 것이다.
+      // 문서 ID 는 onUserCreated 와 같게 고정해 중복 생성을 막는다.
+      batch.set(
+        db.collection('schedules').doc(`birthday_${userDoc.id}`),
+        buildBirthdaySchedule(userDoc.id, user)
+      )
+      created++
+      return
+    }
     const next = getNextBirthday(user.birthday)
     if (scheduleDoc.data().date === next) return
     batch.update(scheduleDoc.ref, { date: next, updatedAt: new Date().toISOString() })
     changed++
   })
 
-  if (changed > 0) {
+  if (changed + created > 0) {
     await batch.commit()
-    console.log(`[생일알림] 생일 일정 ${changed}건 날짜 갱신`)
+    console.log(`[생일알림] 생일 일정 ${changed}건 날짜 갱신, ${created}건 새로 생성`)
   }
 }
 
@@ -408,15 +457,13 @@ export const checkBirthdays = onSchedule(
       // 모든 사용자 조회
       const usersSnapshot = await db.collection('users').get()
       const birthdayUsers: { name: string; userId: string }[] = []
-      const tokens: string[] = []
+      const tokens = recipientTokens(usersSnapshot)
 
       usersSnapshot.forEach((userDoc) => {
         const user = userDoc.data() as UserDoc
 
-        // FCM 토큰 수집
-        if (user.fcmToken) {
-          tokens.push(user.fcmToken)
-        }
+        // 승인 대기 계정의 생일은 알리지 않는다
+        if (user.role === 'pending') return
 
         // 오늘 생일인 사용자 찾기
         if (isValidBirthday(user.birthday)) {

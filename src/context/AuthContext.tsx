@@ -8,6 +8,7 @@ import {
 } from 'firebase/auth'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { auth, db } from '../firebase/config'
+import { disableDeviceNotifications } from '../firebase/fcm'
 import { User, UserRole, Part } from '../types'
 
 interface AuthContextType {
@@ -63,14 +64,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }, [])
 
   const signIn = async (email: string, password: string) => {
-    await signInWithEmailAndPassword(auth, email, password)
+    const { user } = await signInWithEmailAndPassword(auth, email, password)
+    // 가입이 거절됐거나 users 문서가 없는 계정은 들어갈 수 없다 — 아무 반응 없이 로그인 화면에 머무는 대신 이유를 알려 준다
+    if (!(await getDoc(doc(db, 'users', user.uid))).exists()) {
+      await firebaseSignOut(auth)
+      throw new Error('가입이 거절되었거나 삭제된 계정입니다. 매니저에게 문의해 주세요.')
+    }
   }
 
   const signUp = async (email: string, password: string, name: string, part: Part, birthday: string) => {
     const { user } = await createUserWithEmailAndPassword(auth, email, password)
 
-    // 첫 번째 사용자는 manager, 나머지는 member
-    const role: UserRole = 'member' // 기본값, 나중에 매니저가 변경 가능
+    // 매니저가 승인하기 전까지는 대기 상태 (firestore.rules 가 'pending' 으로만 생성을 허용한다)
+    const role: UserRole = 'pending'
 
     const userData: Omit<User, 'id'> = {
       name,
@@ -86,6 +92,14 @@ export function AuthProvider({ children }: AuthProviderProps) {
   }
 
   const signOut = async () => {
+    // 로그아웃한 계정의 알림이 이 기기로 계속 오지 않도록 이 기기의 토큰을 지운다.
+    // 실패하거나 오래 걸려도 로그아웃을 막지 않는다 (오프라인에서는 Firestore 쓰기가 끝나지 않으므로 3초만 기다린다)
+    if (currentUser) {
+      await Promise.race([
+        disableDeviceNotifications(currentUser.id).catch((error) => console.error('알림 해제 실패:', error)),
+        new Promise((resolve) => setTimeout(resolve, 3000))
+      ])
+    }
     await firebaseSignOut(auth)
     setCurrentUser(null)
   }

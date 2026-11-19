@@ -73,7 +73,8 @@ export default function AttendanceManagePage() {
     setLoading(true)
     const q = query(collection(db, 'users'), orderBy('name'))
     const snapshot = await getDocs(q)
-    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User))
+    // 승인 대기 계정은 부원 목록에서 뺀다
+    const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as User)).filter(u => u.role !== 'pending')
     setMembers(data)
     setLoading(false)
   }

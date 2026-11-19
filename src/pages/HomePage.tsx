@@ -2,8 +2,12 @@ import { useEffect, useState } from 'react'
 import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore'
 import { db } from '../firebase/config'
 import { useAuth } from '../context/AuthContext'
-import { setupForegroundMessageListener, requestNotificationPermission } from '../firebase/fcm'
-import { doc, getDoc, updateDoc, deleteField } from 'firebase/firestore'
+import {
+  setupForegroundMessageListener,
+  requestNotificationPermission,
+  isDeviceRegistered,
+  disableDeviceNotifications
+} from '../firebase/fcm'
 import { Schedule, SCHEDULE_TYPE_LABELS, PART_LABELS } from '../types'
 import HeroBanner from '../components/HeroBanner'
 import ConcertPoster from '../components/ConcertPoster'
@@ -62,10 +66,8 @@ export default function HomePage() {
 
   const checkNotificationToken = async () => {
     if (!currentUser) return
-    const userDoc = await getDoc(doc(db, 'users', currentUser.id))
-    if (userDoc.exists() && userDoc.data().fcmToken) {
-      setHasToken(true)
-    }
+    // 계정에 토큰이 있는지가 아니라 '이 기기'가 등록돼 있는지를 종 아이콘에 반영한다
+    setHasToken(await isDeviceRegistered(currentUser.id))
   }
 
   const handleEnableNotifications = async () => {
@@ -87,9 +89,8 @@ export default function HomePage() {
     if (!currentUser) return
     setIsRegistering(true)
     try {
-      await updateDoc(doc(db, 'users', currentUser.id), {
-        fcmToken: deleteField()
-      })
+      // 이 기기의 토큰만 지운다 (다른 기기의 알림은 유지)
+      await disableDeviceNotifications(currentUser.id)
       setHasToken(false)
     } catch (error) {
       console.error('알림 해제 실패:', error)
@@ -103,7 +104,8 @@ export default function HomePage() {
     try {
       // 오늘 이후의 일정 가져오기 (최대 2개)
       // Firestore에서 date로 정렬 후, 클라이언트에서 startTime으로 추가 정렬
-      const today = new Date().toISOString().split('T')[0]
+      // toISOString 은 UTC 기준이라 한국 시간 00:00~08:59 에는 어제 날짜가 된다
+      const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' })
       const schedulesSnap = await getDocs(
         query(
           collection(db, 'schedules'),

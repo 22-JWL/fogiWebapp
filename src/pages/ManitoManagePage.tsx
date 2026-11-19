@@ -31,7 +31,8 @@ export default function ManitoManagePage() {
     if (!isManager) return
     const fetchMembers = async () => {
       const snapshot = await getDocs(query(collection(db, 'users'), orderBy('name')))
-      setMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User)))
+      // 승인 대기 계정은 부원 목록에서 뺀다
+      setMembers(snapshot.docs.map(d => ({ id: d.id, ...d.data() } as User)).filter(u => u.role !== 'pending'))
     }
     fetchMembers().catch(e => {
       console.error(e)
@@ -117,12 +118,13 @@ export default function ManitoManagePage() {
     a.length === b.length && [...a].sort().join() === [...b].sort().join()
 
   const handleSave = async () => {
+    // 명단이 바뀌면 기존 추첨은 짝이 깨진 상태이므로 배정 문서와 drawnAt을 함께 지운다
+    const invalidate = !!drawnAt && !sameRoster(participantIds, serverRoster)
+    if (invalidate && !window.confirm('명단을 바꾸면 이번 달 추첨 결과가 삭제됩니다. 계속할까요?')) return
     setBusy(true)
     setMessage('')
     try {
       const now = new Date().toISOString()
-      // 명단이 바뀌면 기존 추첨은 짝이 깨진 상태이므로 배정 문서와 drawnAt을 함께 지운다
-      const invalidate = !!drawnAt && !sameRoster(participantIds, serverRoster)
       const batch = writeBatch(db)
       if (invalidate) deleteAssignments(batch, members.map(m => m.id))
       batch.set(

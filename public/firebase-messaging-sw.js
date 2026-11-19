@@ -14,6 +14,40 @@ firebase.initializeApp({
   appId: "__VITE_FIREBASE_APP_ID__"
 })
 
+// 알림 클릭 처리
+// Firebase SDK는 firebase.messaging() 시점에 자체 notificationclick 리스너를 등록하고 stopImmediatePropagation 을 부른다.
+// 반드시 그보다 먼저 등록할 것 (순서가 바뀌면 SDK가 띄운 알림을 눌러도 앱이 열리지 않는다)
+self.addEventListener('notificationclick', (event) => {
+  console.log('[firebase-messaging-sw.js] 알림 클릭:', event)
+
+  const action = event.action
+  event.notification.close()
+
+  if (action === 'close') {
+    return
+  }
+
+  // 앱 열기 또는 포커스
+  event.waitUntil(
+    self.clients.matchAll({
+      type: 'window',
+      includeUncontrolled: true
+    }).then((clientList) => {
+      // 이미 열린 창이 있으면 포커스
+      for (const client of clientList) {
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus()
+        }
+      }
+      // 열린 창이 없으면 새 창 열기
+      if (self.clients.openWindow) {
+        const targetUrl = event.notification.data?.url || '/'
+        return self.clients.openWindow(targetUrl)
+      }
+    })
+  )
+})
+
 const messaging = firebase.messaging()
 
 // 백그라운드 메시지 처리 (Firebase SDK 방식)
@@ -83,38 +117,6 @@ messaging.onBackgroundMessage((payload) => {
 //     )
 //   }
 // })
-
-// 알림 클릭 처리
-self.addEventListener('notificationclick', (event) => {
-  console.log('[firebase-messaging-sw.js] 알림 클릭:', event)
-
-  const action = event.action
-  event.notification.close()
-
-  if (action === 'close') {
-    return
-  }
-
-  // 앱 열기 또는 포커스
-  event.waitUntil(
-    self.clients.matchAll({
-      type: 'window',
-      includeUncontrolled: true
-    }).then((clientList) => {
-      // 이미 열린 창이 있으면 포커스
-      for (const client of clientList) {
-        if (client.url.includes(self.location.origin) && 'focus' in client) {
-          return client.focus()
-        }
-      }
-      // 열린 창이 없으면 새 창 열기
-      if (self.clients.openWindow) {
-        const targetUrl = event.notification.data?.url || '/'
-        return self.clients.openWindow(targetUrl)
-      }
-    })
-  )
-})
 
 // 알림 닫기 처리
 self.addEventListener('notificationclose', (event) => {

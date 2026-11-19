@@ -1,5 +1,5 @@
-// 사용자 역할
-export type UserRole = 'manager' | 'member'
+// 사용자 역할 ('pending' = 가입 후 매니저 승인 대기. firestore.rules 가 부원 데이터 접근을 막는다)
+export type UserRole = 'manager' | 'member' | 'pending'
 
 // 파트 종류
 export type Part = 'vocal' | 'guitar' | 'bass' | 'drum' | 'keyboard' | 'etc'
@@ -21,7 +21,8 @@ export interface User {
   role: UserRole
   part: Part
   birthday: string // YYYY-MM-DD
-  fcmToken?: string
+  fcmTokens?: string[] // 알림을 켠 기기별 FCM 토큰
+  fcmToken?: string // 구버전 단일 토큰 (읽기 호환용, 새로 쓰지 않는다)
   createdAt: string
 }
 

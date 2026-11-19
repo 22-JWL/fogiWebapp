@@ -140,7 +140,8 @@ export default function AttendanceStatsPage() {
       ])
       const attendances = attendancesSnap.docs.map((d) => ({ id: d.id, ...d.data() } as Attendance))
 
-      const allStatsData: UserStats[] = usersSnap.docs.map((d) => {
+      // 승인 대기 계정은 부원 통계에서 뺀다
+      const allStatsData: UserStats[] = usersSnap.docs.filter((d) => d.data().role !== 'pending').map((d) => {
         const user = { id: d.id, ...d.data() } as User
         const userAttendances = attendances.filter((a) => a.userId === user.id)
         const attending = userAttendances.filter((a) => a.status === 'attending').length
